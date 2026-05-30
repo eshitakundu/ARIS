@@ -28,6 +28,21 @@ ARIS executes a fixed workflow that:
 4. Generates a recommendation (ADOPT / TRIAL / HOLD / AVOID).
 5. Produces a formatted email and PDF brief.
 
+## Architecture
+
+ARIS uses a fixed DAG (Directed Acyclic Graph) workflow that separates evidence collection, deterministic computation, and narrative generation.
+
+![ARIS Architecture](assets/architecture.svg)
+
+The workflow collects signals from multiple sources in parallel, computes scores deterministically using Python, and uses LLMs only for evidence extraction and report synthesis.
+
+### Architecture Principles
+
+- **Deterministic scoring** — Python computes all scores and recommendations.
+- **LLM-assisted analysis** — LLMs summarize evidence and generate narratives.
+- **Parallel intelligence gathering** — Community, adoption, security, ecosystem, and repository signals are evaluated simultaneously.
+- **Explainable outputs** — Every recommendation can be traced back to collected evidence and documented scoring rules.
+
 ### Evaluation Dimensions
 
 * Maintenance Health
