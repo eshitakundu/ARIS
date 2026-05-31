@@ -1,0 +1,30 @@
+# --- secrets / credentials — never commit ---
+*.env
+.env*
+secrets*
+*secret*
+*credentials*
+*.pem
+*.key
+
+# --- Heym workflow exports can embed API keys (PAT, Tavily, SMTP) ---
+# keep them out of git until they are sanitised / use credential references
+*workflow*.json
+*-branch*.json
+*-export.json
+adoption-decision-intelligence*.json
+
+# --- stray sandbox test files ---
+_wtest.txt
+assets/_cptest.png
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- python ---
+__pycache__/
+*.pyc
+.venv/
