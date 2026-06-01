@@ -1,6 +1,5 @@
 # --- secrets / credentials — never commit ---
 *.env
-.env*
 secrets*
 *secret*
 *credentials*

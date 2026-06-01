@@ -1,0 +1,188 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780228225889_z60dskpsw",
+      "type": "mcpCall",
+      "position": {
+        "x": 120,
+        "y": 135
+      },
+      "data": {
+        "label": "mcpAlternatives",
+        "connection": {
+          "id": "",
+          "transport": "streamable_http",
+          "label": "",
+          "timeoutSeconds": 30,
+          "url": "https://mcp.tavily.com/mcp/?tavilyApiKey={{TAVILY_API_KEY}}",
+          "headers": ""
+        },
+        "selectedTool": "tavily_search",
+        "toolArguments": {
+          "query": "$dataExtract.queries.alternatives",
+          "max_results": "10",
+          "search_depth": "fast",
+          "topic": "",
+          "time_range": "",
+          "include_images": "",
+          "include_image_descriptions": "",
+          "include_raw_content": "",
+          "include_domains": "",
+          "exclude_domains": "",
+          "country": "",
+          "include_favicon": "",
+          "start_date": "",
+          "end_date": "",
+          "exact_match": ""
+        },
+        "timeoutSeconds": 30,
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780228225889_r4fpfxri4",
+      "type": "consoleLog",
+      "position": {
+        "x": 570,
+        "y": 45
+      },
+      "data": {
+        "label": "traceAlternatives",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780228225890_69bql7l05",
+      "type": "llm",
+      "position": {
+        "x": 525,
+        "y": 120
+      },
+      "data": {
+        "label": "alternativesLLM",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.3,
+        "systemInstruction": "You are an alternatives analyst for developer tools.\n\nAnalyse search results and extract direct comparisons and migration signals.\n\nFocus on:\n- Named alternative tools that developers actually switch to\n- Specific reasons why developers choose each alternative over the evaluated tool\n- Direct feature or performance comparisons\n- Migration stories — teams that moved away and why\n\nIgnore generic \"top 10 tools\" listicles and marketing content.\nOnly extract comparisons backed by real developer experience.\nMaximum 4 alternatives.",
+        "userMessage": "Tool: $dataExtract.package_name\nContext: $dataExtract.evaluation_context\nResults: $mcpAlternatives.result",
+        "batchModeEnabled": false,
+        "jsonOutputEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"alternatives\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"name\": {\"type\": \"string\"},\n          \"reason_chosen_over_evaluated_tool\": {\"type\": \"string\"},\n          \"best_for\": {\"type\": \"string\"},\n          \"migration_signals\": {\"type\": \"string\"}\n        }\n      }\n    },\n    \"evaluated_tool_wins_when\": {\"type\": \"string\"},\n    \"evaluated_tool_loses_when\": {\"type\": \"string\"},\n    \"summary\": {\"type\": \"string\"}\n  },\n  \"required\": [\"alternatives\", \"evaluated_tool_wins_when\", \"evaluated_tool_loses_when\", \"summary\"]\n}",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780228279908_j2imf3qmt",
+      "type": "errorHandler",
+      "position": {
+        "x": 405,
+        "y": 270
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780241125010_lfz6joxiq",
+      "type": "textInput",
+      "position": {
+        "x": -330,
+        "y": 135
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780241128789_56e2ccgtt",
+      "type": "output",
+      "position": {
+        "x": 840,
+        "y": 120
+      },
+      "data": {
+        "label": "output",
+        "message": "$alternativesLLM",
+        "allowDownstream": false
+      }
+    },
+    {
+      "id": "node_1780248274486_5botsaj16",
+      "type": "pythonExec",
+      "position": {
+        "x": -105,
+        "y": 135
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap agent / sub-workflow output wrappers (handles nesting)\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\n# Canonicalise the package registry to the exact OSV ecosystem name\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\", \"ts\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\n# Guarantee the fields branch prompts interpolate, so they never render as blank tokens\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"queries\", {})\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780228225889_z60dskpsw_node_1780228225890_69bql7l05_1780228225890",
+      "source": "node_1780228225889_z60dskpsw",
+      "target": "node_1780228225890_69bql7l05",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780228225890_69bql7l05_node_1780228225889_r4fpfxri4_1780228225890",
+      "source": "node_1780228225890_69bql7l05",
+      "target": "node_1780228225889_r4fpfxri4",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228225889_z60dskpsw_node_1780228279908_j2imf3qmt_1780228286878",
+      "source": "node_1780228225889_z60dskpsw",
+      "target": "node_1780228279908_j2imf3qmt",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228225890_69bql7l05_node_1780228279908_j2imf3qmt_1780228289345",
+      "source": "node_1780228225890_69bql7l05",
+      "target": "node_1780228279908_j2imf3qmt",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228225890_69bql7l05_node_1780241128789_56e2ccgtt_1780241138970",
+      "source": "node_1780228225890_69bql7l05",
+      "target": "node_1780241128789_56e2ccgtt",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780241125010_lfz6joxiq_node_1780248274486_5botsaj16_1780248285523",
+      "source": "node_1780241125010_lfz6joxiq",
+      "target": "node_1780248274486_5botsaj16",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780248274486_5botsaj16_node_1780228225889_z60dskpsw_1780248287268",
+      "source": "node_1780248274486_5botsaj16",
+      "target": "node_1780228225889_z60dskpsw",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}

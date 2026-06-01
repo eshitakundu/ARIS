@@ -1,0 +1,375 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780228104255_tidreowza",
+      "type": "textInput",
+      "position": {
+        "x": -1185,
+        "y": 150
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780228104255_8ne8xx4va",
+      "type": "mcpCall",
+      "position": {
+        "x": -510,
+        "y": 240
+      },
+      "data": {
+        "label": "mcpProductionAdoption",
+        "connection": {
+          "id": "",
+          "transport": "streamable_http",
+          "label": "",
+          "timeoutSeconds": 30,
+          "url": "https://mcp.tavily.com/mcp/?tavilyApiKey={{TAVILY_API_KEY}}",
+          "headers": ""
+        },
+        "selectedTool": "tavily_search",
+        "toolArguments": {
+          "query": "$dataExtract.queries.production",
+          "max_results": "10",
+          "search_depth": "fast",
+          "topic": "",
+          "time_range": "",
+          "include_images": "",
+          "include_image_descriptions": "",
+          "include_raw_content": "",
+          "include_domains": "",
+          "exclude_domains": "",
+          "country": "",
+          "include_favicon": "",
+          "start_date": "",
+          "end_date": "",
+          "exact_match": ""
+        },
+        "timeoutSeconds": 30,
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780228104256_soqi7e9tc",
+      "type": "consoleLog",
+      "position": {
+        "x": -15,
+        "y": 135
+      },
+      "data": {
+        "label": "traceProductionAdoption",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780228104256_caclcutco",
+      "type": "llm",
+      "position": {
+        "x": -60,
+        "y": 225
+      },
+      "data": {
+        "label": "productionAdoptionLLM",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.2,
+        "systemInstruction": "You are a production adoption analyst for developer tools.\n\nAnalyse search results and extract signals about real-world production usage.\n\nFocus on:\n- Named companies or projects using this tool in production\n- Scale signals (users, requests, data volume)\n- Specific use cases it is deployed for\n- Reliability and performance signals from production users\n\nenterprise_case_studies_score MUST be a number from 0.0 to 1.0:\n0.0 = no production/enterprise evidence; 0.5 = some named usage without scale data;\n1.0 = multiple named enterprises with documented scale and reliability.\nNever use a 0-100 or percentage scale.\n\nIgnore tutorials, demos, and marketing content.\nOnly count confirmed production deployments, not experiments or prototypes.\nMaximum 4 points per section.",
+        "userMessage": "Tool: $dataExtract.package_name\nContext: $dataExtract.evaluation_context\nResults: $mcpProductionAdoption.result",
+        "batchModeEnabled": false,
+        "jsonOutputEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"companies_in_production\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"use_cases\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"scale_signals\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"reliability_signals\": {\n      \"type\": \"array\",\n      \"items\": {\"type\": \"string\"}\n    },\n    \"enterprise_case_studies_score\": {\n      \"type\": \"number\"\n    },\n    \"summary\": {\"type\": \"string\"}\n  },\n  \"required\": [\"companies_in_production\", \"use_cases\", \"scale_signals\", \"reliability_signals\", \"enterprise_case_studies_score\", \"summary\"]\n}",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780228104256_g6qsmaz7i",
+      "type": "http",
+      "position": {
+        "x": -510,
+        "y": 345
+      },
+      "data": {
+        "label": "httpStackOverflow",
+        "curl": "curl -X GET \"https://api.stackexchange.com/2.3/tags/$dataExtract.package_name/info?site=stackoverflow&filter=default\"",
+        "active": true,
+        "pinnedData": {},
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780228104256_swv6vjvcg",
+      "type": "output",
+      "position": {
+        "x": 975,
+        "y": 375
+      },
+      "data": {
+        "label": "output",
+        "message": "$productionAdoptionCompute",
+        "allowDownstream": false
+      }
+    },
+    {
+      "id": "node_1780228167008_n32z2qdus",
+      "type": "errorHandler",
+      "position": {
+        "x": 285,
+        "y": -60
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780237100136_5ql1equfa",
+      "type": "merge",
+      "position": {
+        "x": 375,
+        "y": 360
+      },
+      "data": {
+        "label": "mergeProductionInputs",
+        "inputCount": 4
+      }
+    },
+    {
+      "id": "node_1780237529725_576trgtzz",
+      "type": "pythonExec",
+      "position": {
+        "x": 675,
+        "y": 375
+      },
+      "data": {
+        "label": "productionAdoptionCompute",
+        "code": "import json, sys, math, re\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\ndef unwrap(x):\n    if isinstance(x, dict) and list(x.keys()) == [\"result\"]:\n        return x[\"result\"]\n    if isinstance(x, dict) and \"status\" in x and \"body\" in x:\n        return x[\"body\"]\n    return x\n\ndef walk(node):\n    if isinstance(node, dict):\n        yield node\n        for v in node.values():\n            yield from walk(v)\n    elif isinstance(node, list):\n        for v in node:\n            yield from walk(v)\n\ndef clamp(x, lo=0, hi=100):\n    return max(lo, min(hi, x))\n\ndef find_dependents(node):\n    if isinstance(node, str) and len(node) > 100:\n        m = re.search(r'([\\d,]+)\\s+Repositor', node)\n        if m:\n            return int(m.group(1).replace(\",\", \"\"))\n    elif isinstance(node, dict):\n        for v in node.values():\n            r = find_dependents(v)\n            if r is not None:\n                return r\n    elif isinstance(node, list):\n        for v in node:\n            r = find_dependents(v)\n            if r is not None:\n                return r\n    return None\n\nif isinstance(raw, dict) and \"merged\" in raw:\n    raw = raw[\"merged\"]\ncandidates = list(raw.values()) if isinstance(raw, dict) else raw\n\nunwrapped = []\nfor v in candidates:\n    u = unwrap(v)\n    if isinstance(u, str):\n        try:\n            u = json.loads(u)\n        except Exception:\n            pass\n    unwrapped.append(u)\n\n# ── LLM narrative data ──────────────────────────────────────────────\nllm = next(\n    (u for u in walk(unwrapped) if isinstance(u, dict) and \"enterprise_case_studies_score\" in u),\n    {}\n)\necs = float(llm.get(\"enterprise_case_studies_score\") or 0)\n\n# ── GitHub stars (raw API has stargazers_count) ─────────────────────\nstars = next(\n    (u.get(\"stargazers_count\") for u in walk(unwrapped)\n     if isinstance(u, dict) and \"stargazers_count\" in u),\n    None\n)\n\n# ── GitHub dependents (extract from Playwright HTML) ────────────────\ndependents = find_dependents(unwrapped)\n\n# ── Stack Overflow question count ───────────────────────────────────\nso_count = None\nfor u in walk(unwrapped):\n    if isinstance(u, dict):\n        items = u.get(\"items\")\n        if isinstance(items, list) and items and \"count\" in items[0]:\n            so_count = items[0][\"count\"]\n            break\n\n# ── Score each sub-dimension (log scale, score 100 at ceiling) ─────\necs_score   = clamp(ecs * 100)\nstars_score = clamp(math.log10(max(stars, 1)) / math.log10(100_000) * 100) if stars is not None else None\nso_score    = clamp(math.log10(max(so_count, 1)) / math.log10(50_000) * 100) if so_count is not None else None\ndep_score   = clamp(math.log10(max(dependents, 1)) / math.log10(100_000) * 100) if dependents is not None else None\n\n# ── Weighted average, renormalise over present dims only ───────────\npairs = [(v, w) for v, w in [\n    (ecs_score,   0.35),\n    (stars_score, 0.25),\n    (so_score,    0.15),\n    (dep_score,   0.25),\n] if v is not None]\ntw = sum(w for _, w in pairs)\nproduction_score = round(sum(v * w for v, w in pairs) / tw, 1) if tw else None\n\nresult = {\n    \"enterprise_case_studies_score\": ecs,\n    \"companies_in_production\":       llm.get(\"companies_in_production\", []),\n    \"use_cases\":                     llm.get(\"use_cases\", []),\n    \"scale_signals\":                 llm.get(\"scale_signals\", []),\n    \"reliability_signals\":           llm.get(\"reliability_signals\", []),\n    \"summary\":                       llm.get(\"summary\", \"\"),\n    \"github_stars\":                  stars,\n    \"github_dependents\":             dependents,\n    \"stackoverflow_question_count\":  so_count,\n    \"sub_scores\": {\n        \"case_studies\":  round(ecs_score, 1),\n        \"stars\":         round(stars_score, 1) if stars_score is not None else None,\n        \"stackoverflow\": round(so_score, 1)    if so_score    is not None else None,\n        \"dependents\":    round(dep_score, 1)   if dep_score   is not None else None,\n    },\n    \"production_score\": production_score,\n}\n\nprint(json.dumps(result))",
+        "inputExpression": "$mergeProductionInputs",
+        "timeoutSeconds": 30
+      }
+    },
+    {
+      "id": "node_1780244619674_uko1ganm8",
+      "type": "pythonExec",
+      "position": {
+        "x": -735,
+        "y": 150
+      },
+      "data": {
+        "label": "parseGithubRepo",
+        "code": "import json, sys, re\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nurl = raw.get(\"github_url\", \"\")\nm = re.search(r\"github\\.com/([^/]+)/([^/]+?)(?:\\.git)?$\", url.strip())\n\nif m:\n    print(json.dumps({\"owner\": m.group(1), \"repo\": m.group(2)}))\nelse:\n    print(json.dumps({\"owner\": \"\", \"repo\": \"\"}))",
+        "inputExpression": "$dataExtract",
+        "timeoutSeconds": 30
+      }
+    },
+    {
+      "id": "node_1780244679570_z9447a565",
+      "type": "http",
+      "position": {
+        "x": -510,
+        "y": 465
+      },
+      "data": {
+        "label": "httpGithubStars",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseGithubRepo.owner/$parseGithubRepo.repo\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "onErrorEnabled": true,
+        "retryEnabled": true
+      }
+    },
+    {
+      "id": "node_1780244814253_347n7iwj2",
+      "type": "playwright",
+      "position": {
+        "x": -510,
+        "y": 570
+      },
+      "data": {
+        "label": "crawlerGithubDependents",
+        "playwrightSteps": [
+          {
+            "action": "navigate",
+            "url": "https://github.com/$parseGithubRepo.owner/$parseGithubRepo.repo/network/dependents"
+          },
+          {
+            "action": "getHTML",
+            "url": "https://example.com",
+            "selector": "body",
+            "outputKey": "html"
+          }
+        ],
+        "playwrightCode": "",
+        "playwrightHeadless": true,
+        "playwrightTimeout": 30000,
+        "playwrightCaptureNetwork": false,
+        "playwrightAuthEnabled": false,
+        "playwrightAuthStateExpression": "",
+        "playwrightAuthCheckSelector": "",
+        "playwrightAuthCheckTimeout": 5000,
+        "playwrightAuthFallbackSteps": [],
+        "onErrorEnabled": true,
+        "retryEnabled": true
+      }
+    },
+    {
+      "id": "node_1780248076038_euoq85ab0",
+      "type": "pythonExec",
+      "position": {
+        "x": -960,
+        "y": 150
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap agent / sub-workflow output wrappers (handles nesting)\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\n# Canonicalise the package registry to the exact OSV ecosystem name\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\", \"ts\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\n# Guarantee the fields branch prompts interpolate, so they never render as blank tokens\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"queries\", {})\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780228104256_caclcutco_node_1780228104256_soqi7e9tc_1780228104256",
+      "source": "node_1780228104256_caclcutco",
+      "target": "node_1780228104256_soqi7e9tc",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780237529725_576trgtzz_node_1780228104256_swv6vjvcg_1780243787808",
+      "source": "node_1780237529725_576trgtzz",
+      "target": "node_1780228104256_swv6vjvcg",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780228104255_8ne8xx4va_node_1780228104256_caclcutco_1780243866558",
+      "source": "node_1780228104255_8ne8xx4va",
+      "target": "node_1780228104256_caclcutco",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780228104256_caclcutco_node_1780237100136_5ql1equfa_1780243915163",
+      "source": "node_1780228104256_caclcutco",
+      "target": "node_1780237100136_5ql1equfa",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780228104256_g6qsmaz7i_node_1780237100136_5ql1equfa_1780243917431",
+      "source": "node_1780228104256_g6qsmaz7i",
+      "target": "node_1780237100136_5ql1equfa",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780237100136_5ql1equfa_node_1780237529725_576trgtzz_1780243925743",
+      "source": "node_1780237100136_5ql1equfa",
+      "target": "node_1780237529725_576trgtzz",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780244619674_uko1ganm8_node_1780228104255_8ne8xx4va_1780244653655",
+      "source": "node_1780244619674_uko1ganm8",
+      "target": "node_1780228104255_8ne8xx4va",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780244619674_uko1ganm8_node_1780228104256_g6qsmaz7i_1780244658115",
+      "source": "node_1780244619674_uko1ganm8",
+      "target": "node_1780228104256_g6qsmaz7i",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780244619674_uko1ganm8_node_1780244679570_z9447a565_1780244742273",
+      "source": "node_1780244619674_uko1ganm8",
+      "target": "node_1780244679570_z9447a565",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780244679570_z9447a565_node_1780237100136_5ql1equfa_1780244757333",
+      "source": "node_1780244679570_z9447a565",
+      "target": "node_1780237100136_5ql1equfa",
+      "sourceHandle": "output",
+      "targetHandle": "input-2"
+    },
+    {
+      "id": "edge_node_1780244814253_347n7iwj2_node_1780237100136_5ql1equfa_1780244884330",
+      "source": "node_1780244814253_347n7iwj2",
+      "target": "node_1780237100136_5ql1equfa",
+      "sourceHandle": "output",
+      "targetHandle": "input-3"
+    },
+    {
+      "id": "edge_node_1780244619674_uko1ganm8_node_1780244814253_347n7iwj2_1780244960406",
+      "source": "node_1780244619674_uko1ganm8",
+      "target": "node_1780244814253_347n7iwj2",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780228104255_8ne8xx4va_node_1780228167008_n32z2qdus_1780244998940",
+      "source": "node_1780228104255_8ne8xx4va",
+      "target": "node_1780228167008_n32z2qdus",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228104256_g6qsmaz7i_node_1780228167008_n32z2qdus_1780245003050",
+      "source": "node_1780228104256_g6qsmaz7i",
+      "target": "node_1780228167008_n32z2qdus",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780244679570_z9447a565_node_1780228167008_n32z2qdus_1780245006785",
+      "source": "node_1780244679570_z9447a565",
+      "target": "node_1780228167008_n32z2qdus",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780244814253_347n7iwj2_node_1780228167008_n32z2qdus_1780245010530",
+      "source": "node_1780244814253_347n7iwj2",
+      "target": "node_1780228167008_n32z2qdus",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228104256_caclcutco_node_1780228167008_n32z2qdus_1780245014756",
+      "source": "node_1780228104256_caclcutco",
+      "target": "node_1780228167008_n32z2qdus",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228104255_tidreowza_node_1780248076038_euoq85ab0_1780248092284",
+      "source": "node_1780228104255_tidreowza",
+      "target": "node_1780248076038_euoq85ab0",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780248076038_euoq85ab0_node_1780244619674_uko1ganm8_1780248096525",
+      "source": "node_1780248076038_euoq85ab0",
+      "target": "node_1780244619674_uko1ganm8",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}

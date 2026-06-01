@@ -1,0 +1,182 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780227891711_504qwcrfy",
+      "type": "textInput",
+      "position": {
+        "x": -435,
+        "y": 15
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780227891712_aq8x5ejj6",
+      "type": "consoleLog",
+      "position": {
+        "x": 650,
+        "y": 50
+      },
+      "data": {
+        "label": "traceSecurityRisk",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227891712_6gni2b2ay",
+      "type": "http",
+      "position": {
+        "x": 15,
+        "y": 135
+      },
+      "data": {
+        "label": "httpSecurityRisk",
+        "curl": "curl -X POST https://api.osv.dev/v1/query -H \"Content-Type: application/json\" -d '{\"package\": {\"name\": \"$dataExtract.package_name\", \"ecosystem\": \"$dataExtract.package_registry\"}}'",
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227891712_ckor6rfuy",
+      "type": "pythonExec",
+      "position": {
+        "x": 585,
+        "y": 120
+      },
+      "data": {
+        "label": "securityCompute",
+        "code": "import json, sys, math\nfrom datetime import datetime, timezone\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str): raw = json.loads(raw)\nif isinstance(raw, dict) and \"merged\" in raw: raw = raw[\"merged\"]\n\ndef walk(node):\n    if isinstance(node, dict):\n        yield node\n        for v in node.values(): yield from walk(v)\n    elif isinstance(node, list):\n        for v in node: yield from walk(v)\n\n# locate registry + OSV payload anywhere in the merged input\nregistry, osv = None, None\nfor u in walk(raw):\n    if registry is None and \"package_registry\" in u: registry = u.get(\"package_registry\")\n    if osv is None and \"vulns\" in u:                  osv = u\nregistry = (registry or \"\").strip().lower()\nvulns = (osv or {}).get(\"vulns\", []) or []\n\n# Not a tracked registry -> no security signal at all. Exclude (lowers confidence).\nif registry in (\"\", \"none\"):\n    print(json.dumps({\n        \"data_available\": False,\n        \"total_cve_count\": 0,\n        \"security_posture\": \"Not a tracked package registry; no CVE feed available.\",\n        \"summary\": \"Security excluded from the score because no OSV ecosystem applies.\",\n    }))\n    sys.exit(0)\n\nnow = datetime.now(timezone.utc)\n\ndef parse(ts):\n    if not ts: return None\n    try: return datetime.fromisoformat(ts.replace(\"Z\", \"+00:00\"))\n    except Exception: return None\n\ndef cvss_base(vector):\n    \"\"\"Compute a CVSS v3.0/3.1 base score from a vector string. Returns float or None.\"\"\"\n    try:\n        p = dict(x.split(\":\") for x in vector.split(\"/\") if \":\" in x)\n    except Exception:\n        return None\n    AV={\"N\":0.85,\"A\":0.62,\"L\":0.55,\"P\":0.2}.get(p.get(\"AV\"))\n    AC={\"L\":0.77,\"H\":0.44}.get(p.get(\"AC\"))\n    UI={\"N\":0.85,\"R\":0.62}.get(p.get(\"UI\"))\n    S=p.get(\"S\",\"U\")\n    PRm={\"U\":{\"N\":0.85,\"L\":0.62,\"H\":0.27},\"C\":{\"N\":0.85,\"L\":0.68,\"H\":0.5}}\n    PR=PRm.get(\"C\" if S==\"C\" else \"U\",{}).get(p.get(\"PR\"))\n    imp={\"H\":0.56,\"L\":0.22,\"N\":0.0}\n    C,I,A=imp.get(p.get(\"C\")),imp.get(p.get(\"I\")),imp.get(p.get(\"A\"))\n    if None in (AV,AC,UI,PR,C,I,A): return None\n    iss=1-(1-C)*(1-I)*(1-A)\n    impact=7.52*(iss-0.029)-3.25*((iss-0.02)**15) if S==\"C\" else 6.42*iss\n    if impact<=0: return 0.0\n    expl=8.22*AV*AC*PR*UI\n    score=min(1.08*(impact+expl),10) if S==\"C\" else min(impact+expl,10)\n    return math.ceil(score*10)/10\n\ndef sev_label(v):\n    # 1) GHSA/advisory string label\n    ds = (v.get(\"database_specific\") or {}).get(\"severity\")\n    if isinstance(ds, str):\n        s = ds.upper()\n        if s == \"CRITICAL\": return \"critical\"\n        if s == \"HIGH\": return \"high\"\n        if s in (\"MODERATE\", \"MEDIUM\"): return \"medium\"\n        if s == \"LOW\": return \"low\"\n    # 2) numeric or CVSS-vector score\n    best = None\n    for sv in v.get(\"severity\", []) or []:\n        sc = sv.get(\"score\")\n        f = None\n        try: f = float(sc)\n        except (TypeError, ValueError):\n            if isinstance(sc, str) and sc.upper().startswith(\"CVSS\"):\n                f = cvss_base(sc)\n        if f is not None: best = max(best or 0, f)\n    if best is not None:\n        if best >= 9.0: return \"critical\"\n        if best >= 7.0: return \"high\"\n        if best >= 4.0: return \"medium\"\n        if best > 0:    return \"low\"\n    return \"unknown\"\n\ndef is_fixed(v):\n    for a in v.get(\"affected\", []) or []:\n        for r in a.get(\"ranges\", []) or []:\n            for e in r.get(\"events\", []) or []:\n                if \"fixed\" in e: return True\n    return False\n\npkg = \"unknown\"\nfor v in vulns:\n    for a in v.get(\"affected\", []) or []:\n        name = (a.get(\"package\") or {}).get(\"name\")\n        if name: pkg = name; break\n    if pkg != \"unknown\": break\n\ndef empty(): return {\"critical\":0,\"high\":0,\"medium\":0,\"low\":0,\"unknown\":0}\ntotal_breakdown, live_breakdown, unpatched = empty(), empty(), []\nfor v in vulns:\n    lbl = sev_label(v)\n    total_breakdown[lbl] += 1\n    if not is_fixed(v):\n        live_breakdown[lbl] += 1\n        unpatched.append(v)\n\nunpatched_count = len(unpatched)\npatched_count = len(vulns) - unpatched_count\nunp_dates = [d for d in (parse(v.get(\"published\")) for v in unpatched) if d]\ndays_since_oldest_unpatched = (now - min(unp_dates)).days if unp_dates else 0\n\nPATTERNS = {\n    \"arbitrary code execution\": [\"arbitrary code\",\"code execution\",\"remote code\",\"rce\"],\n    \"SQL injection\": [\"sql injection\"],\n    \"server-side request forgery (SSRF)\": [\"server-side request forgery\",\"ssrf\"],\n    \"path traversal\": [\"path traversal\",\"directory traversal\"],\n    \"OS command injection\": [\"command injection\"],\n    \"denial of service\": [\"denial of service\"],\n    \"cross-site scripting (XSS)\": [\"cross-site scripting\",\"xss\"],\n    \"deserialization\": [\"deserialization\",\"pickle\"],\n}\ntext = \" \".join(((v.get(\"summary\",\"\") or \"\")+\" \"+(v.get(\"details\",\"\") or \"\")).lower() for v in vulns)\npatterns = [n for n,kws in PATTERNS.items() if any(k in text for k in kws)]\n\nposture = (f\"All {len(vulns)} known CVEs have fixes available; live risk is low on a current release.\"\n           if unpatched_count == 0 else\n           f\"{unpatched_count} of {len(vulns)} CVEs remain unpatched; oldest is {days_since_oldest_unpatched} days old.\")\n\nprint(json.dumps({\n    \"data_available\": True,\n    \"package\": pkg,\n    \"total_cve_count\": len(vulns),\n    \"patched_count\": patched_count,\n    \"unpatched_count\": unpatched_count,\n    \"severity_breakdown\": {k: live_breakdown[k] for k in (\"critical\",\"high\",\"medium\",\"low\")},\n    \"total_severity_breakdown\": total_breakdown,\n    \"days_since_oldest_unpatched\": days_since_oldest_unpatched,\n    \"vulnerability_patterns\": patterns,\n    \"security_posture\": posture,\n    \"summary\": f\"{pkg} has {len(vulns)} known CVEs ({patched_count} patched, {unpatched_count} unpatched). Score reflects only the unpatched (live) surface.\",\n}))",
+        "inputExpression": "$mergeSecurityInputs",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227891713_fhi4swiaa",
+      "type": "output",
+      "position": {
+        "x": 960,
+        "y": 105
+      },
+      "data": {
+        "label": "output",
+        "message": "$securityCompute",
+        "allowDownstream": false
+      }
+    },
+    {
+      "id": "node_1780227974376_k3sdktlgv",
+      "type": "errorHandler",
+      "position": {
+        "x": 315,
+        "y": 330
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780248355562_ewnj3uqdy",
+      "type": "pythonExec",
+      "position": {
+        "x": -195,
+        "y": 15
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap agent / sub-workflow output wrappers (handles nesting)\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\n# Canonicalise the package registry to the exact OSV ecosystem name\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\", \"ts\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\n# Guarantee the fields branch prompts interpolate, so they never render as blank tokens\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"queries\", {})\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30
+      }
+    },
+    {
+      "id": "node_1780260233363_mvb9wlvh2",
+      "type": "merge",
+      "position": {
+        "x": 345,
+        "y": 30
+      },
+      "data": {
+        "label": "mergeSecurityInputs",
+        "inputCount": 2
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780227891712_ckor6rfuy_node_1780227891712_aq8x5ejj6_1780227891712",
+      "source": "node_1780227891712_ckor6rfuy",
+      "target": "node_1780227891712_aq8x5ejj6",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227891712_ckor6rfuy_node_1780227891713_fhi4swiaa_1780227962413",
+      "source": "node_1780227891712_ckor6rfuy",
+      "target": "node_1780227891713_fhi4swiaa",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227891712_6gni2b2ay_node_1780227974376_k3sdktlgv_1780227977571",
+      "source": "node_1780227891712_6gni2b2ay",
+      "target": "node_1780227974376_k3sdktlgv",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227891712_ckor6rfuy_node_1780227974376_k3sdktlgv_1780227979766",
+      "source": "node_1780227891712_ckor6rfuy",
+      "target": "node_1780227974376_k3sdktlgv",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227891711_504qwcrfy_node_1780248355562_ewnj3uqdy_1780248366572",
+      "source": "node_1780227891711_504qwcrfy",
+      "target": "node_1780248355562_ewnj3uqdy",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780248355562_ewnj3uqdy_node_1780260233363_mvb9wlvh2_1780260276880",
+      "source": "node_1780248355562_ewnj3uqdy",
+      "target": "node_1780260233363_mvb9wlvh2",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780248355562_ewnj3uqdy_node_1780227891712_6gni2b2ay_1780260297032",
+      "source": "node_1780248355562_ewnj3uqdy",
+      "target": "node_1780227891712_6gni2b2ay",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227891712_6gni2b2ay_node_1780260233363_mvb9wlvh2_1780260375125",
+      "source": "node_1780227891712_6gni2b2ay",
+      "target": "node_1780260233363_mvb9wlvh2",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780260233363_mvb9wlvh2_node_1780227891712_ckor6rfuy_1780260834762",
+      "source": "node_1780260233363_mvb9wlvh2",
+      "target": "node_1780227891712_ckor6rfuy",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}

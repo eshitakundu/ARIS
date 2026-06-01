@@ -1,0 +1,350 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780227444732_mkk0jdj6x",
+      "type": "textInput",
+      "position": {
+        "x": -480,
+        "y": 165
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780227444732_2mfc4txb3",
+      "type": "condition",
+      "position": {
+        "x": 45,
+        "y": 165
+      },
+      "data": {
+        "label": "conditionRegistry",
+        "condition": "$dataExtract.package_registry == \"npm\"",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444732_luz3vy7d7",
+      "type": "http",
+      "position": {
+        "x": 525,
+        "y": 150
+      },
+      "data": {
+        "label": "httpNpm",
+        "curl": "curl -X GET https://api.npmjs.org/downloads/range/last-year/$dataExtract.package_name",
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_557gta3fq",
+      "type": "http",
+      "position": {
+        "x": 545,
+        "y": 320
+      },
+      "data": {
+        "label": "httpPypi",
+        "curl": "curl -X GET https://pypistats.org/api/packages/$dataExtract.package_name/recent",
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_u5b9rm7wr",
+      "type": "consoleLog",
+      "position": {
+        "x": 1770,
+        "y": 45
+      },
+      "data": {
+        "label": "traceTrajectory",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_fckqv0q8s",
+      "type": "condition",
+      "position": {
+        "x": 855,
+        "y": 210
+      },
+      "data": {
+        "label": "conditionPypiStatus",
+        "condition": "$httpPypi.status == 200",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_15vs0gt6b",
+      "type": "mcpCall",
+      "position": {
+        "x": 1095,
+        "y": 435
+      },
+      "data": {
+        "label": "mcpTavilyTrajectory",
+        "connection": {
+          "id": "",
+          "transport": "streamable_http",
+          "label": "",
+          "timeoutSeconds": 30,
+          "url": "https://mcp.tavily.com/mcp/?tavilyApiKey={{TAVILY_API_KEY}}",
+          "headers": ""
+        },
+        "selectedTool": "tavily_search",
+        "toolArguments": {
+          "query": "$dataExtract.queries.trajectory",
+          "max_results": "5",
+          "search_depth": "fast",
+          "topic": "",
+          "time_range": "",
+          "include_images": "",
+          "include_image_descriptions": "",
+          "include_raw_content": "",
+          "include_domains": "",
+          "exclude_domains": "",
+          "country": "",
+          "include_favicon": "",
+          "start_date": "",
+          "end_date": "",
+          "exact_match": ""
+        },
+        "timeoutSeconds": 30,
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780227444733_3zdeo5k8z",
+      "type": "condition",
+      "position": {
+        "x": 260,
+        "y": 425
+      },
+      "data": {
+        "label": "conditionRegistry",
+        "condition": "$dataExtract.package_registry == \"PyPI\"",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_tiiwkgkf1",
+      "type": "llm",
+      "position": {
+        "x": 1395,
+        "y": 135
+      },
+      "data": {
+        "label": "trajectoryLLM",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.2,
+        "systemInstruction": "You are a download trajectory analyst for developer tools.\n\nYou receive raw download statistics from either the npm downloads API or PyPI stats API.\n\nExtract and output:\n- weekly_download_trend: describe the trend in plain language (1-2 sentences)\n- velocity: must be exactly one of \"accelerating\", \"stable\", or \"declining\"\n- peak_period: when downloads were highest (e.g. \"Q3 2024\", \"last 3 months\")\n- summary: 2-3 sentences on what the download data signals about this tool's trajectory\n\nIf npm or PyPI download data is unavailable but Tavily trajectory data is present, use the Tavily results to infer velocity from signals like production usage mentions, company adoption, and community activity.\n\nDo NOT output any numeric scores. Only output velocity as one of the three exact strings above.",
+        "userMessage": "Tool: $dataExtract.package_name\nRegistry: $dataExtract.package_registry\nnpm data: $httpNpm.body\nPyPI data: $httpPypi.body\nTavily trajectory data: $mcpTavilyTrajectory.result",
+        "batchModeEnabled": false,
+        "jsonOutputEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"weekly_download_trend\": {\"type\": \"string\"},\n    \"velocity\": {\"type\": \"string\", \"enum\": [\"accelerating\", \"stable\", \"declining\"]},\n    \"peak_period\": {\"type\": \"string\"},\n    \"summary\": {\"type\": \"string\"}\n  },\n  \"required\": [\"weekly_download_trend\", \"velocity\", \"peak_period\", \"summary\"]\n}",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_rnf7nfe9l",
+      "type": "pythonExec",
+      "position": {
+        "x": 1755,
+        "y": 120
+      },
+      "data": {
+        "label": "trajectoryCompute",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nVELOCITY_MAP = {\n    \"accelerating\": 80,\n    \"stable\":       55,\n    \"declining\":    25,\n}\n\nvelocity = (raw.get(\"velocity\") or \"stable\").lower().strip()\nadoption_momentum = VELOCITY_MAP.get(velocity, 50)\n\nresult = {\n    \"weekly_download_trend\": raw.get(\"weekly_download_trend\", \"\"),\n    \"velocity\":              velocity,\n    \"adoption_momentum\":     adoption_momentum,\n    \"peak_period\":           raw.get(\"peak_period\", \"\"),\n    \"summary\":               raw.get(\"summary\", \"\"),\n}\n\nprint(json.dumps(result))",
+        "inputExpression": "$trajectoryLLM",
+        "timeoutSeconds": 30,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444733_q0o83ah8k",
+      "type": "output",
+      "position": {
+        "x": 2085,
+        "y": 120
+      },
+      "data": {
+        "label": "output",
+        "message": "$trajectoryCompute",
+        "allowDownstream": false,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227618480_h3c1x9712",
+      "type": "errorHandler",
+      "position": {
+        "x": 765,
+        "y": 720
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780248559275_ktt1doul0",
+      "type": "pythonExec",
+      "position": {
+        "x": -210,
+        "y": 165
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap agent / sub-workflow output wrappers (handles nesting)\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\n# Canonicalise the package registry to the exact OSV ecosystem name\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\", \"ts\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\n# Guarantee the fields branch prompts interpolate, so they never render as blank tokens\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"queries\", {})\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780227444732_2mfc4txb3_node_1780227444732_luz3vy7d7_1780227444733",
+      "source": "node_1780227444732_2mfc4txb3",
+      "target": "node_1780227444732_luz3vy7d7",
+      "sourceHandle": "true",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_557gta3fq_node_1780227444733_fckqv0q8s_1780227444733",
+      "source": "node_1780227444733_557gta3fq",
+      "target": "node_1780227444733_fckqv0q8s",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_fckqv0q8s_node_1780227444733_15vs0gt6b_1780227444733",
+      "source": "node_1780227444733_fckqv0q8s",
+      "target": "node_1780227444733_15vs0gt6b",
+      "sourceHandle": "false",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444732_2mfc4txb3_node_1780227444733_3zdeo5k8z_1780227444733",
+      "source": "node_1780227444732_2mfc4txb3",
+      "target": "node_1780227444733_3zdeo5k8z",
+      "sourceHandle": "false",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_3zdeo5k8z_node_1780227444733_557gta3fq_1780227444733",
+      "source": "node_1780227444733_3zdeo5k8z",
+      "target": "node_1780227444733_557gta3fq",
+      "sourceHandle": "true",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_3zdeo5k8z_node_1780227444733_15vs0gt6b_1780227444733",
+      "source": "node_1780227444733_3zdeo5k8z",
+      "target": "node_1780227444733_15vs0gt6b",
+      "sourceHandle": "false",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_fckqv0q8s_node_1780227444733_tiiwkgkf1_1780227444733",
+      "source": "node_1780227444733_fckqv0q8s",
+      "target": "node_1780227444733_tiiwkgkf1",
+      "sourceHandle": "true",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444732_luz3vy7d7_node_1780227444733_tiiwkgkf1_1780227444733",
+      "source": "node_1780227444732_luz3vy7d7",
+      "target": "node_1780227444733_tiiwkgkf1",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_15vs0gt6b_node_1780227444733_tiiwkgkf1_1780227444733",
+      "source": "node_1780227444733_15vs0gt6b",
+      "target": "node_1780227444733_tiiwkgkf1",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_tiiwkgkf1_node_1780227444733_rnf7nfe9l_1780227444733",
+      "source": "node_1780227444733_tiiwkgkf1",
+      "target": "node_1780227444733_rnf7nfe9l",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_rnf7nfe9l_node_1780227444733_u5b9rm7wr_1780227444733",
+      "source": "node_1780227444733_rnf7nfe9l",
+      "target": "node_1780227444733_u5b9rm7wr",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444733_rnf7nfe9l_node_1780227444733_q0o83ah8k_1780227508539",
+      "source": "node_1780227444733_rnf7nfe9l",
+      "target": "node_1780227444733_q0o83ah8k",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227444733_557gta3fq_node_1780227618480_h3c1x9712_1780227662728",
+      "source": "node_1780227444733_557gta3fq",
+      "target": "node_1780227618480_h3c1x9712",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444733_15vs0gt6b_node_1780227618480_h3c1x9712_1780227666059",
+      "source": "node_1780227444733_15vs0gt6b",
+      "target": "node_1780227618480_h3c1x9712",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444733_tiiwkgkf1_node_1780227618480_h3c1x9712_1780227670298",
+      "source": "node_1780227444733_tiiwkgkf1",
+      "target": "node_1780227618480_h3c1x9712",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444732_luz3vy7d7_node_1780227618480_h3c1x9712_1780227673607",
+      "source": "node_1780227444732_luz3vy7d7",
+      "target": "node_1780227618480_h3c1x9712",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444732_mkk0jdj6x_node_1780248559275_ktt1doul0_1780248571044",
+      "source": "node_1780227444732_mkk0jdj6x",
+      "target": "node_1780248559275_ktt1doul0",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780248559275_ktt1doul0_node_1780227444732_2mfc4txb3_1780248572817",
+      "source": "node_1780248559275_ktt1doul0",
+      "target": "node_1780227444732_2mfc4txb3",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}

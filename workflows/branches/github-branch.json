@@ -1,0 +1,346 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780227051215_9e4d83qkj",
+      "type": "textInput",
+      "position": {
+        "x": -480,
+        "y": 135
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780227051215_c5ch8b7xs",
+      "type": "pythonExec",
+      "position": {
+        "x": -30,
+        "y": 135
+      },
+      "data": {
+        "label": "parseGithubRepo",
+        "code": "import json, sys, re\nfrom datetime import datetime, timezone, timedelta\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nurl = (raw.get(\"github_url\") or \"\").strip()\n# tolerate trailing slash, .git, and deep links like /tree/main\nm = re.search(r\"github\\.com/([^/\\s]+)/([^/\\s#?]+?)(?:\\.git)?(?:[/#?].*)?$\", url)\nowner, repo = (m.group(1), m.group(2)) if m else (\"\", \"\")\n\n# 90-day window so commit velocity is measured over a fixed period (see §3.2)\nsince = (datetime.now(timezone.utc) - timedelta(days=90)).strftime(\"%Y-%m-%dT%H:%M:%SZ\")\n\nprint(json.dumps({\"owner\": owner, \"repo\": repo, \"since\": since}))",
+        "inputExpression": "$dataExtract",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227051215_xky20i4fw",
+      "type": "consoleLog",
+      "position": {
+        "x": 1340,
+        "y": 80
+      },
+      "data": {
+        "label": "traceGithubHealth",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227051215_fyahfuc48",
+      "type": "pythonExec",
+      "position": {
+        "x": 1260,
+        "y": 150
+      },
+      "data": {
+        "label": "githubHealthCompute",
+        "code": "import json, sys, re\nfrom collections import Counter\nfrom datetime import datetime, timezone\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\nif isinstance(raw, dict) and \"merged\" in raw:\n    raw = raw[\"merged\"]\n\ndef unwrap(x):\n    if isinstance(x, dict) and list(x.keys()) == [\"result\"]:\n        return x[\"result\"]\n    if isinstance(x, dict) and \"status\" in x and \"body\" in x:\n        return x[\"body\"]\n    return x\n\ndef find_dependents(node):\n    \"\"\"Recursively search any string in the structure for GitHub dependents count.\"\"\"\n    if isinstance(node, str) and len(node) > 100:\n        m = re.search(r'([\\d,]+)\\s+Repositor', node)\n        if m:\n            return int(m.group(1).replace(\",\", \"\"))\n    elif isinstance(node, dict):\n        for v in node.values():\n            r = find_dependents(v)\n            if r is not None:\n                return r\n    elif isinstance(node, list):\n        for v in node:\n            r = find_dependents(v)\n            if r is not None:\n                return r\n    return None\n\nif isinstance(raw, dict):\n    candidates = list(raw.values())\nelif isinstance(raw, list):\n    candidates = raw\nelse:\n    candidates = [raw]\n\ncommits = releases = contributors = stars = None\nissues_lists = []\ndependents = None\n\nfor v in candidates:\n    u = unwrap(v)\n    if isinstance(u, str):\n        try:\n            u = json.loads(u)\n        except Exception:\n            pass\n    # Try extracting dependents from any candidate (Playwright HTML)\n    if dependents is None:\n        dependents = find_dependents(u)\n    if isinstance(u, list) and u and isinstance(u[0], dict):\n        first = u[0]\n        if \"sha\" in first or \"commit\" in first:\n            commits = u\n        elif \"contributions\" in first and \"login\" in first:\n            contributors = u\n        elif \"state\" in first and \"number\" in first and \"sha\" not in first:\n            issues_lists.append([i for i in u if \"pull_request\" not in i])\n    elif isinstance(u, dict):\n        if \"published_at\" in u or \"tag_name\" in u:\n            releases = u\n        elif \"stargazers_count\" in u:\n            stars = u.get(\"stargazers_count\")\n        elif \"issues\" in u:\n            issues_lists.append(u[\"issues\"])\n        # Playwright results dict: {\"html\": \"...\", ...}\n        elif \"html\" in u or \"results\" in u:\n            if dependents is None:\n                dependents = find_dependents(u)\n\n# Combine open and closed issues\nissues = []\nfor lst in issues_lists:\n    issues.extend(lst)\n\nif commits is None and not issues and releases is None and contributors is None:\n    def describe(x):\n        if isinstance(x, dict):\n            return {\"dict_keys\": list(x.keys())[:8]}\n        if isinstance(x, list):\n            return {\"list_len\": len(x), \"first\": describe(x[0]) if x else None}\n        return type(x).__name__\n    print(json.dumps({\"debug\": describe(raw)}))\n    sys.exit(0)\n\ncommits      = commits      or []\nreleases     = releases     or {}\ncontributors = contributors or []\n\nBOTS = {\"web-flow\"}\n\ndef parse(ts):\n    if not ts:\n        return None\n    try:\n        return datetime.fromisoformat(ts.replace(\"Z\", \"+00:00\"))\n    except Exception:\n        return None\n\ndef is_bot(login):\n    return (not login) or login.endswith(\"[bot]\") or login in BOTS\n\nnow = datetime.now(timezone.utc)\n\n# ---- COMMIT VELOCITY ----\ndates = [parse(c.get(\"commit\", {}).get(\"author\", {}).get(\"date\")) for c in commits]\ndates = [d for d in dates if d]\ntotal_commits = len(commits)\nif len(dates) >= 2:\n    range_days = max((max(dates) - min(dates)).days, 1)\nelse:\n    range_days = 1\ncommits_per_week = round(total_commits / (range_days / 7), 2) if total_commits else 0.0\n\ndef velocity_score(cpw):\n    if cpw > 10: return 90\n    if cpw >= 5: return 70\n    if cpw >= 2: return 50\n    if cpw > 0:  return 30\n    return 0\ncv_score = velocity_score(commits_per_week)\n\n# ---- BUS FACTOR ----\nif contributors and isinstance(contributors[0], dict) and \"contributions\" in contributors[0]:\n    real = [c for c in contributors if not is_bot(c.get(\"login\", \"\"))]\n    real_total = sum(c.get(\"contributions\", 0) for c in real)\n    top_raw = sorted(real, key=lambda c: c.get(\"contributions\", 0), reverse=True)[:3]\n    top3 = [{\"login\": c.get(\"login\"), \"commit_count\": c.get(\"contributions\")} for c in top_raw]\n    top_pct = round(top_raw[0].get(\"contributions\", 0) / real_total * 100, 1) if real_total and top_raw else 0.0\nelse:\n    logins = [c.get(\"author\", {}).get(\"login\") for c in commits if c.get(\"author\")]\n    logins = [l for l in logins if not is_bot(l)]\n    counts = Counter(logins)\n    real_total = sum(counts.values())\n    top3 = [{\"login\": l, \"commit_count\": n} for l, n in counts.most_common(3)]\n    top_pct = round(counts.most_common(1)[0][1] / real_total * 100, 1) if real_total else 0.0\n\ndef bus_score(p):\n    if p < 20: return 90\n    if p <= 35: return 70\n    if p <= 50: return 50\n    if p <= 70: return 30\n    return 10\nbf_score = bus_score(top_pct) if real_total else 0\n\n# ---- ISSUE HEALTH ----\nclosed = sum(1 for i in issues if i.get(\"state\", \"\").upper() == \"CLOSED\")\nopen_  = sum(1 for i in issues if i.get(\"state\", \"\").upper() == \"OPEN\")\ntotal_issues = closed + open_\nclose_rate = round(closed / total_issues * 100, 1) if total_issues else 0.0\n\ndef close_score(r):\n    if r > 70: return 90\n    if r >= 50: return 70\n    if r >= 30: return 50\n    return 30\nic_score = close_score(close_rate) if total_issues else 0\n\n# ---- RELEASE CADENCE ----\npub = parse(releases.get(\"published_at\"))\ndays_since = (now - pub).days if pub else 9999\n\ndef cadence_score(d):\n    if d < 30:  return 90\n    if d <= 90: return 70\n    if d <= 180: return 50\n    if d <= 365: return 30\n    return 10\nrc_score = cadence_score(days_since)\n\n# ---- FAILURE PREDICTION ----\nif bf_score > 70 and cv_score > 60:\n    burnout = \"low\"\nelif bf_score < 40 or cv_score < 30:\n    burnout = \"high\"\nelse:\n    burnout = \"medium\"\n\nrisk = 0.0\nif days_since > 180:   risk += 0.4\nelif days_since > 90:  risk += 0.2\nif commits_per_week < 2:   risk += 0.4\nelif commits_per_week < 5: risk += 0.2\nif total_issues and close_rate < 30: risk += 0.2\nabandonment = round(min(risk, 1.0), 2)\n\n# ---- CONTRIBUTOR COUNT ----\ncontributor_count = len([\n    c for c in contributors\n    if isinstance(c, dict) and not is_bot(c.get(\"login\", \"\"))\n]) if isinstance(contributors, list) else None\n\nresult = {\n    \"commit_velocity\": {\n        \"total_commits_in_sample\": total_commits,\n        \"date_range_days\": range_days,\n        \"commits_per_week\": commits_per_week,\n        \"commit_velocity_trend_score\": cv_score,\n    },\n    \"bus_factor\": {\n        \"top_contributor_pct\": top_pct,\n        \"bus_factor_score\": bf_score,\n        \"top_contributors\": top3,\n    },\n    \"issue_health\": {\n        \"open_count\": open_,\n        \"closed_count\": closed,\n        \"close_rate_pct\": close_rate,\n        \"issue_close_rate_score\": ic_score,\n    },\n    \"release_cadence\": {\n        \"days_since_last_release\": days_since,\n        \"last_release_tag\": releases.get(\"tag_name\", \"\"),\n        \"release_cadence_score\": rc_score,\n    },\n    \"contributor_count\": contributor_count,\n    \"github_stars\": stars,\n    \"github_dependents\": dependents,\n    \"failure_prediction\": {\n        \"maintainer_burnout_risk\": burnout,\n        \"abandonment_probability\": abandonment,\n    },\n}\n\nprint(json.dumps(result))",
+        "inputExpression": "$mergeGithubData",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227051215_jpwa9k820",
+      "type": "merge",
+      "position": {
+        "x": 990,
+        "y": 120
+      },
+      "data": {
+        "label": "mergeGithubData",
+        "inputCount": 5,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227051216_0pmly7nvq",
+      "type": "http",
+      "position": {
+        "x": 495,
+        "y": 195
+      },
+      "data": {
+        "label": "httpGithubIssuesOpen",
+        "curl": "curl -X GET \"https://api.github.com/search/issues?q=repo:$parseGithubRepo.owner/$parseGithubRepo.repo+type:issue+state:open&per_page=1\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780227051216_t69a7io9x",
+      "type": "http",
+      "position": {
+        "x": 495,
+        "y": 270
+      },
+      "data": {
+        "label": "httpGithubContributors",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseGithubRepo.owner/$parseGithubRepo.repo/contributors?per_page=100\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780227051216_71kkvcyjr",
+      "type": "http",
+      "position": {
+        "x": 495,
+        "y": 345
+      },
+      "data": {
+        "label": "httpGithubIssuesClosed",
+        "curl": "curl -X GET \"https://api.github.com/search/issues?q=repo:$parseGithubRepo.owner/$parseGithubRepo.repo+type:issue+state:closed&per_page=1\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780227051216_e9u1uuekh",
+      "type": "output",
+      "position": {
+        "x": 1635,
+        "y": 135
+      },
+      "data": {
+        "label": "output",
+        "message": "$githubHealthCompute",
+        "allowDownstream": false
+      }
+    },
+    {
+      "id": "node_1780227273695_1sb07cdes",
+      "type": "errorHandler",
+      "position": {
+        "x": 135,
+        "y": 795
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780248740097_5h76z194m",
+      "type": "pythonExec",
+      "position": {
+        "x": -255,
+        "y": 135
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap agent / sub-workflow output wrappers (handles nesting)\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\n# Canonicalise the package registry to the exact OSV ecosystem name\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\", \"ts\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\n# Guarantee the fields branch prompts interpolate, so they never render as blank tokens\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"queries\", {})\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30
+      }
+    },
+    {
+      "id": "node_1780249357776_xzgbmrfwf",
+      "type": "http",
+      "position": {
+        "x": 495,
+        "y": 45
+      },
+      "data": {
+        "label": "httpGithubCommits",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseGithubRepo.owner/$parseGithubRepo.repo/commits?per_page=100&since=$parseGithubRepo.since\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780249370570_wrp0t18m6",
+      "type": "http",
+      "position": {
+        "x": 495,
+        "y": 120
+      },
+      "data": {
+        "label": "httpGithubReleases",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseGithubRepo.owner/$parseGithubRepo.repo/releases/latest\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780227051215_fyahfuc48_node_1780227051215_xky20i4fw_1780227051216",
+      "source": "node_1780227051215_fyahfuc48",
+      "target": "node_1780227051215_xky20i4fw",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051215_jpwa9k820_node_1780227051215_fyahfuc48_1780227051216",
+      "source": "node_1780227051215_jpwa9k820",
+      "target": "node_1780227051215_fyahfuc48",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780227051216_0pmly7nvq_1780227051216",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780227051216_0pmly7nvq",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780227051216_t69a7io9x_1780227051216",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780227051216_t69a7io9x",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780227051216_71kkvcyjr_1780227051216",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780227051216_71kkvcyjr",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780227273695_1sb07cdes_1780227277979",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051216_0pmly7nvq_node_1780227273695_1sb07cdes_1780227294727",
+      "source": "node_1780227051216_0pmly7nvq",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051216_t69a7io9x_node_1780227273695_1sb07cdes_1780227297384",
+      "source": "node_1780227051216_t69a7io9x",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051216_71kkvcyjr_node_1780227273695_1sb07cdes_1780227302730",
+      "source": "node_1780227051216_71kkvcyjr",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051215_fyahfuc48_node_1780227273695_1sb07cdes_1780227309101",
+      "source": "node_1780227051215_fyahfuc48",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051216_0pmly7nvq_node_1780227051215_jpwa9k820_1780244849025",
+      "source": "node_1780227051216_0pmly7nvq",
+      "target": "node_1780227051215_jpwa9k820",
+      "sourceHandle": "output",
+      "targetHandle": "input-2"
+    },
+    {
+      "id": "edge_node_1780227051216_t69a7io9x_node_1780227051215_jpwa9k820_1780244850683",
+      "source": "node_1780227051216_t69a7io9x",
+      "target": "node_1780227051215_jpwa9k820",
+      "sourceHandle": "output",
+      "targetHandle": "input-3"
+    },
+    {
+      "id": "edge_node_1780227051216_71kkvcyjr_node_1780227051215_jpwa9k820_1780244852777",
+      "source": "node_1780227051216_71kkvcyjr",
+      "target": "node_1780227051215_jpwa9k820",
+      "sourceHandle": "output",
+      "targetHandle": "input-4"
+    },
+    {
+      "id": "edge_node_1780227051215_fyahfuc48_node_1780227051216_e9u1uuekh_1780245712368",
+      "source": "node_1780227051215_fyahfuc48",
+      "target": "node_1780227051216_e9u1uuekh",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_9e4d83qkj_node_1780248740097_5h76z194m_1780248748643",
+      "source": "node_1780227051215_9e4d83qkj",
+      "target": "node_1780248740097_5h76z194m",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780248740097_5h76z194m_node_1780227051215_c5ch8b7xs_1780248750364",
+      "source": "node_1780248740097_5h76z194m",
+      "target": "node_1780227051215_c5ch8b7xs",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780249357776_xzgbmrfwf_1780249503906",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780249357776_xzgbmrfwf",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780227051215_c5ch8b7xs_node_1780249370570_wrp0t18m6_1780249505758",
+      "source": "node_1780227051215_c5ch8b7xs",
+      "target": "node_1780249370570_wrp0t18m6",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780249357776_xzgbmrfwf_node_1780227051215_jpwa9k820_1780249507986",
+      "source": "node_1780249357776_xzgbmrfwf",
+      "target": "node_1780227051215_jpwa9k820",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780249370570_wrp0t18m6_node_1780227051215_jpwa9k820_1780249510362",
+      "source": "node_1780249370570_wrp0t18m6",
+      "target": "node_1780227051215_jpwa9k820",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780249357776_xzgbmrfwf_node_1780227273695_1sb07cdes_1780249516350",
+      "source": "node_1780249357776_xzgbmrfwf",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780249370570_wrp0t18m6_node_1780227273695_1sb07cdes_1780249521802",
+      "source": "node_1780249370570_wrp0t18m6",
+      "target": "node_1780227273695_1sb07cdes",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    }
+  ]
+}
