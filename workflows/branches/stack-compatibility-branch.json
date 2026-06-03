@@ -1,0 +1,304 @@
+{
+  "nodes": [
+    {
+      "id": "node_1780778052436_syk9jqz48",
+      "type": "textInput",
+      "position": {
+        "x": -135,
+        "y": 45
+      },
+      "data": {
+        "label": "start",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "data"
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1780905098453_0bl8plzvl",
+      "type": "pythonExec",
+      "position": {
+        "x": 120,
+        "y": 45
+      },
+      "data": {
+        "label": "dataExtract",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"your_repo_url\", \"\")\n\nprint(json.dumps(raw))",
+        "inputExpression": "$start.body.data",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780906175144_jzb6iobn0",
+      "type": "pythonExec",
+      "position": {
+        "x": 420,
+        "y": -45
+      },
+      "data": {
+        "label": "parseUserRepo",
+        "code": "import json, sys, re\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nurl = (raw.get(\"your_repo_url\") or \"\").strip()\nm = re.search(r\"github\\.com/([^/\\s]+)/([^/\\s#?]+?)(?:\\.git)?(?:[/#?].*)?$\", url)\n\nowner = m.group(1) if m else \"\"\nrepo = m.group(2) if m else \"\"\n\nprint(json.dumps({\n    \"owner\": owner,\n    \"repo\": repo,\n    \"package_name\": (raw.get(\"package_name\") or \"\").strip().lower(),\n    \"package_registry\": (raw.get(\"package_registry\") or \"\").strip().lower(),\n}))",
+        "inputExpression": "$dataExtract",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780906476502_i9ahz2euj",
+      "type": "http",
+      "position": {
+        "x": 795,
+        "y": 30
+      },
+      "data": {
+        "label": "httpReqsTxt",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseUserRepo.owner/$parseUserRepo.repo/contents/requirements.txt\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "onErrorEnabled": true,
+        "retryEnabled": true
+      }
+    },
+    {
+      "id": "node_1780907544162_8d5x5wtzy",
+      "type": "errorHandler",
+      "position": {
+        "x": 555,
+        "y": 405
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780907684702_ur4i6wvei",
+      "type": "http",
+      "position": {
+        "x": 795,
+        "y": -45
+      },
+      "data": {
+        "label": "httpPyproject",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseUserRepo.owner/$parseUserRepo.repo/contents/pyproject.toml\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780907730114_9jkh4anxf",
+      "type": "http",
+      "position": {
+        "x": 795,
+        "y": 105
+      },
+      "data": {
+        "label": "httpPackageJson",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseUserRepo.owner/$parseUserRepo.repo/contents/package.json\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780907811912_58zwlxc9q",
+      "type": "merge",
+      "position": {
+        "x": 1230,
+        "y": 0
+      },
+      "data": {
+        "label": "mergeStack",
+        "inputCount": 5
+      }
+    },
+    {
+      "id": "node_1780907932344_t8c88uu5e",
+      "type": "pythonExec",
+      "position": {
+        "x": 1575,
+        "y": 15
+      },
+      "data": {
+        "label": "stackCompute",
+        "code": "import json, sys, base64, re\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str): raw = json.loads(raw)\nif isinstance(raw, dict) and \"merged\" in raw: raw = raw[\"merged\"]\n\ndef walk(n):\n    if isinstance(n, dict):\n        yield n\n        for v in n.values(): yield from walk(v)\n    elif isinstance(n, list):\n        for v in n: yield from walk(v)\n\ntool = registry = \"\"\nfor u in walk(raw):\n    if not tool and u.get(\"package_name\"): tool = (u.get(\"package_name\") or \"\").strip().lower()\n    if not registry and u.get(\"package_registry\"): registry = (u.get(\"package_registry\") or \"\").strip().lower()\n\nmanifests = {}\nfor u in walk(raw):\n    if isinstance(u, dict) and u.get(\"name\") and u.get(\"content\") and u.get(\"encoding\") == \"base64\":\n        try: manifests[u[\"name\"].lower()] = base64.b64decode(u[\"content\"]).decode(\"utf-8\", \"replace\")\n        except Exception: pass\n\ndef norm(n): return re.split(r\"[<>=!~ ;\\[]\", n.strip(), 1)[0].strip().lower()\n\npy_deps, node_deps = {}, {}\nrequires_python = node_engine = None\n\nif \"requirements.txt\" in manifests:\n    for line in manifests[\"requirements.txt\"].splitlines():\n        line = line.strip()\n        if not line or line[0] in \"#-\": continue\n        nm = norm(line)\n        if nm: py_deps[nm] = line\n\nif \"pyproject.toml\" in manifests:\n    txt = manifests[\"pyproject.toml\"]\n    try:\n        import tomllib\n        data = tomllib.loads(txt)\n        proj = data.get(\"project\", {})\n        requires_python = proj.get(\"requires-python\")\n        for d in proj.get(\"dependencies\", []) or []: py_deps[norm(d)] = d\n        poetry = (data.get(\"tool\", {}) or {}).get(\"poetry\", {})\n        for k, v in (poetry.get(\"dependencies\", {}) or {}).items():\n            if k.lower() == \"python\": requires_python = requires_python or str(v)\n            else: py_deps[k.lower()] = str(v)\n    except Exception:\n        m = re.search(r'requires-python\\s*=\\s*[\"\\']([^\"\\']+)', txt)\n        if m: requires_python = m.group(1)\n\nif \"package.json\" in manifests:\n    try:\n        pj = json.loads(manifests[\"package.json\"])\n        for k, v in {**pj.get(\"dependencies\", {}), **pj.get(\"devDependencies\", {})}.items():\n            node_deps[k.lower()] = v\n        node_engine = (pj.get(\"engines\") or {}).get(\"node\")\n    except Exception: pass\n\nrepo_is_python = bool(py_deps) or \"requirements.txt\" in manifests or \"pyproject.toml\" in manifests\nrepo_is_node = bool(node_deps) or \"package.json\" in manifests\n\nif registry == \"pypi\": eco_ok, target = repo_is_python, py_deps\nelif registry == \"npm\": eco_ok, target = repo_is_node, node_deps\nelse: eco_ok, target = None, {}\n\nalready = tool in target if target else False\nalready_version = target.get(tool) if already else None\ndep_count = len(target)\nnotes, score = [], None\n\nif not (repo_is_python or repo_is_node):\n    for u in walk(raw):\n        lang = (u.get(\"language\") or \"\").lower()\n        if lang in (\"python\",): repo_is_python = True\n        elif lang in (\"javascript\", \"typescript\"): repo_is_node = True\n        if repo_is_python or repo_is_node:\n            notes.append(f\"No manifest found; ecosystem inferred from repo language ({lang}).\")\n            break\n    if not (repo_is_python or repo_is_node):\n        notes.append(\"No dependency manifest or language signal found in the target repo.\")\nelif eco_ok is None:\n    notes.append(\"Tool registry unknown; cannot assess stack fit.\")\nelif not eco_ok:\n    score = 15\n    notes.append(f\"Ecosystem mismatch: '{tool}' is a {registry} package but the repo is not {registry}-based.\")\nelse:\n    score = 70\n    notes.append(f\"Ecosystem match: {registry} package against a {registry}-based repo.\")\n    if already:\n        score = 92\n        notes.append(f\"Already a declared dependency ({already_version}) - proven to integrate.\")\n    if dep_count > 40:\n        score -= 8\n        notes.append(f\"Large dependency surface ({dep_count} deps) raises version-conflict risk.\")\n    elif dep_count:\n        notes.append(f\"{dep_count} declared dependencies.\")\n    if requires_python and registry == \"pypi\":\n        notes.append(f\"Repo targets Python {requires_python}.\")\n    if node_engine and registry == \"npm\":\n        notes.append(f\"Repo targets Node {node_engine}.\")\n\nif score is not None: score = max(0, min(100, score))\n\nprint(json.dumps({\n    \"stack_compatibility\": score,\n    \"data_available\": score is not None,\n    \"evaluated_tool\": tool,\n    \"registry\": registry,\n    \"repo_stack\": \"python+node\" if repo_is_python and repo_is_node else (\"python\" if repo_is_python else (\"node\" if repo_is_node else \"unknown\")),\n    \"already_dependency\": already,\n    \"already_version\": already_version,\n    \"declared_dependency_count\": dep_count,\n    \"requires_python\": requires_python,\n    \"notes\": notes,\n}, default=str))",
+        "inputExpression": "$mergeStack",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780907990249_n7ynq9yri",
+      "type": "output",
+      "position": {
+        "x": 1920,
+        "y": 0
+      },
+      "data": {
+        "label": "output",
+        "message": "$stackCompute",
+        "allowDownstream": false
+      }
+    },
+    {
+      "id": "node_1780938835130_it7ghdl0e",
+      "type": "http",
+      "position": {
+        "x": 795,
+        "y": 180
+      },
+      "data": {
+        "label": "httpRepoMeta",
+        "curl": "curl -X GET \"https://api.github.com/repos/$parseUserRepo.owner/$parseUserRepo.repo\" -H \"Authorization: Bearer {{GITHUB_PAT}}\" -H \"Accept: application/vnd.github+json\"",
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1780778052436_syk9jqz48_node_1780905098453_0bl8plzvl_1780905103667",
+      "source": "node_1780778052436_syk9jqz48",
+      "target": "node_1780905098453_0bl8plzvl",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780905098453_0bl8plzvl_node_1780906175144_jzb6iobn0_1780906336995",
+      "source": "node_1780905098453_0bl8plzvl",
+      "target": "node_1780906175144_jzb6iobn0",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780906175144_jzb6iobn0_node_1780906476502_i9ahz2euj_1780906482133",
+      "source": "node_1780906175144_jzb6iobn0",
+      "target": "node_1780906476502_i9ahz2euj",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780905098453_0bl8plzvl_node_1780907544162_8d5x5wtzy_1780907547132",
+      "source": "node_1780905098453_0bl8plzvl",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780906175144_jzb6iobn0_node_1780907544162_8d5x5wtzy_1780907550425",
+      "source": "node_1780906175144_jzb6iobn0",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780906476502_i9ahz2euj_node_1780907544162_8d5x5wtzy_1780907553638",
+      "source": "node_1780906476502_i9ahz2euj",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780907684702_ur4i6wvei_node_1780907544162_8d5x5wtzy_1780907715257",
+      "source": "node_1780907684702_ur4i6wvei",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780907730114_9jkh4anxf_node_1780907544162_8d5x5wtzy_1780907835796",
+      "source": "node_1780907730114_9jkh4anxf",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780907932344_t8c88uu5e_node_1780907544162_8d5x5wtzy_1780907960776",
+      "source": "node_1780907932344_t8c88uu5e",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780907932344_t8c88uu5e_node_1780907990249_n7ynq9yri_1780907995816",
+      "source": "node_1780907932344_t8c88uu5e",
+      "target": "node_1780907990249_n7ynq9yri",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780906175144_jzb6iobn0_node_1780907684702_ur4i6wvei_1780912466898",
+      "source": "node_1780906175144_jzb6iobn0",
+      "target": "node_1780907684702_ur4i6wvei",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780907684702_ur4i6wvei_node_1780907811912_58zwlxc9q_1780912531282",
+      "source": "node_1780907684702_ur4i6wvei",
+      "target": "node_1780907811912_58zwlxc9q",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780906476502_i9ahz2euj_node_1780907811912_58zwlxc9q_1780912534115",
+      "source": "node_1780906476502_i9ahz2euj",
+      "target": "node_1780907811912_58zwlxc9q",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780907730114_9jkh4anxf_node_1780907811912_58zwlxc9q_1780912547216",
+      "source": "node_1780907730114_9jkh4anxf",
+      "target": "node_1780907811912_58zwlxc9q",
+      "sourceHandle": "output",
+      "targetHandle": "input-2"
+    },
+    {
+      "id": "edge_node_1780905098453_0bl8plzvl_node_1780907811912_58zwlxc9q_1780912574721",
+      "source": "node_1780905098453_0bl8plzvl",
+      "target": "node_1780907811912_58zwlxc9q",
+      "sourceHandle": "output",
+      "targetHandle": "input-3"
+    },
+    {
+      "id": "edge_node_1780907811912_58zwlxc9q_node_1780907932344_t8c88uu5e_1780912609476",
+      "source": "node_1780907811912_58zwlxc9q",
+      "target": "node_1780907932344_t8c88uu5e",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780938835130_it7ghdl0e_node_1780907544162_8d5x5wtzy_1780938872065",
+      "source": "node_1780938835130_it7ghdl0e",
+      "target": "node_1780907544162_8d5x5wtzy",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780938835130_it7ghdl0e_node_1780907811912_58zwlxc9q_1780938899253",
+      "source": "node_1780938835130_it7ghdl0e",
+      "target": "node_1780907811912_58zwlxc9q",
+      "sourceHandle": "output",
+      "targetHandle": "input-4"
+    },
+    {
+      "id": "edge_node_1780906175144_jzb6iobn0_node_1780907730114_9jkh4anxf_1780946832294",
+      "source": "node_1780906175144_jzb6iobn0",
+      "target": "node_1780907730114_9jkh4anxf",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780906175144_jzb6iobn0_node_1780938835130_it7ghdl0e_1780946837209",
+      "source": "node_1780906175144_jzb6iobn0",
+      "target": "node_1780938835130_it7ghdl0e",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    }
+  ]
+}
