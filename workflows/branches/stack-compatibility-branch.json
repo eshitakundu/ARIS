@@ -27,7 +27,7 @@
       },
       "data": {
         "label": "dataExtract",
-        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\nwhile isinstance(raw, dict) and \"output\" in raw and isinstance(raw[\"output\"], dict):\n    raw = raw[\"output\"]\n\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"your_repo_url\", \"\")\n\nprint(json.dumps(raw))",
+        "code": "import json, sys\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str):\n    raw = json.loads(raw)\n\n# Unwrap common wrappers: {\"output\": {...}} from upstream nodes,\n# {\"data\": {...}} from textInput test payloads / execute-node inputs\nwhile isinstance(raw, dict):\n    if \"output\" in raw and isinstance(raw[\"output\"], dict):\n        raw = raw[\"output\"]\n    elif isinstance(raw.get(\"data\"), dict) and any(\n        k in raw[\"data\"] for k in\n        (\"package_name\", \"your_repo_url\", \"user_repo_url\",\n         \"evaluation_context\", \"package_registry\")\n    ):\n        raw = raw[\"data\"]\n    else:\n        break\n\n# If `data` is a JSON-encoded string (Heym sometimes wraps that way), decode it\nif isinstance(raw, dict) and isinstance(raw.get(\"data\"), str):\n    s = raw[\"data\"].strip()\n    if s.startswith(\"{\"):\n        try:\n            inner = json.loads(s)\n            if isinstance(inner, dict):\n                raw = inner\n        except Exception:\n            pass\n\n# Field-name reconciliation:\n# - The UI form uses your_repo_url\n# - The decomposer LLM passes through user_repo_url\n# Accept either; canonicalise to your_repo_url for downstream nodes.\nif not raw.get(\"your_repo_url\") and raw.get(\"user_repo_url\"):\n    raw[\"your_repo_url\"] = raw[\"user_repo_url\"]\n\nREG = {\n    \"pypi\": \"PyPI\", \"pip\": \"PyPI\", \"python\": \"PyPI\",\n    \"npm\": \"npm\", \"node\": \"npm\", \"nodejs\": \"npm\", \"javascript\": \"npm\", \"js\": \"npm\",\n    \"\": \"none\", \"none\": \"none\", \"null\": \"none\",\n}\nreg = (raw.get(\"package_registry\") or \"\").strip()\nraw[\"package_registry\"] = REG.get(reg.lower(), reg)\n\nraw.setdefault(\"evaluation_context\", \"\")\nraw.setdefault(\"package_name\", \"\")\nraw.setdefault(\"your_repo_url\", \"\")\n\nprint(json.dumps(raw))",
         "inputExpression": "$start.body.data",
         "timeoutSeconds": 30,
         "retryEnabled": true,
@@ -304,7 +304,8 @@
       },
       "data": {
         "label": "traceMergeStack",
-        "logMessage": "$mergeStack"
+        "logMessage": "$mergeStack",
+        "status": "success"
       }
     }
   ],
