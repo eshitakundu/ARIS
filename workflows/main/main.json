@@ -1,0 +1,765 @@
+{
+  "nodes": [
+    {
+      "id": "node_1779905759799_xvw1xzxe5",
+      "type": "textInput",
+      "position": {
+        "x": -270,
+        "y": 180
+      },
+      "data": {
+        "label": "userInput",
+        "value": "",
+        "inputFields": [
+          {
+            "key": "repo_or_tool",
+            "defaultValue": ""
+          },
+          {
+            "key": "evaluation_context",
+            "defaultValue": ""
+          },
+          {
+            "key": "your_repo_url"
+          },
+          {
+            "key": "recipient_email",
+            "defaultValue": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1779905799164_g8fjplkqe",
+      "type": "consoleLog",
+      "position": {
+        "x": -270,
+        "y": 75
+      },
+      "data": {
+        "label": "traceStart",
+        "logMessage": "ARIS started - tool: $userInput.body.repo_or_tool\ncontext: $userInput.body.evaluation_context\ntime: $Date(\"\")"
+      }
+    },
+    {
+      "id": "node_1779906069294_d11m75xwz",
+      "type": "agent",
+      "position": {
+        "x": 75,
+        "y": 180
+      },
+      "data": {
+        "label": "decomposer",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.1,
+        "systemInstruction": "You are a research task decomposer for technology evaluation.\n\nGiven a tool name or GitHub URL and an evaluation context, output a JSON routing object.\n\nRULES:\n- If input is a tool name (e.g. 'langchain'), resolve its GitHub URL\n- Detect package registry: 'npm' if JS/TS tool, 'pypi' if Python, 'none' if neither\n- Generate targeted search queries per agent, shaped by the evaluation context\n- Queries must be specific and context-aware, not generic\n- For community query: focus on real developer experiences, complaints, praise — not tutorials or marketing\n- For production query: focus on companies using it in prod, scale, reliability\n- For alternatives query: focus on direct comparisons and migration stories\n- Pass through user_repo_url exactly as provided, or omit if blank\n- Treat the evaluation_context as the user's specific use case. Generate queries that combine the tool name with the actual use case described, not generic queries about the tool alone.\n- Never assume domain-specific meanings for acronyms — use the evaluation_context to determine intent.\n- Keep queries concise and keyword-focused (under 15 words). No full sentences.\n- package_registry must use the exact OSV ecosystem name for the package \n  (e.g. 'PyPI' for Python, 'npm' for JavaScript). \n  Match the casing OSV uses. If not a package, output 'none'.\n- For production query: prioritize named companies using the tool internally, not vendors \n  selling services around it. Phrase as: \"[tool] used by [company/team] in production\"\n\nAfter generating your JSON output, call validate_queries with:\n- queries: the queries object you generated  \n- tool_name: the package_name value\n\nIf validate_queries returns validated: false, use corrected_queries instead of your original queries in the final JSON output.\n\nAlso generate a \"trajectory\" query specifically targeting download trends, weekly or monthly growth or decline, version release history, and adoption momentum signals for the tool. Keep it under 15 words, keyword-focused.\n- Echo the evaluation_context you were given verbatim into the output field \"evaluation_context\". Do not rewrite or summarise it.",
+        "userMessage": "Tool or repo: $userInput.body.repo_or_tool\nEvaluation context: $userInput.body.evaluation_context\nUser repo: $userInput.body.your_repo_url",
+        "tools": [],
+        "mcpConnections": [],
+        "toolTimeoutSeconds": 30,
+        "maxToolIterations": 30,
+        "isOrchestrator": false,
+        "subAgentLabels": [],
+        "hitlEnabled": false,
+        "hitlSummary": "",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "imageInputEnabled": false,
+        "jsonOutputEnabled": true,
+        "guardrailsEnabled": false,
+        "retryEnabled": true,
+        "pinnedData": null,
+        "onErrorEnabled": true,
+        "persistentMemoryEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"github_url\": {\"type\": \"string\"},\n    \"package_name\": {\"type\": \"string\"},\n    \"package_registry\": {\"type\": \"string\"},\n    \"user_repo_url\": {\"type\": \"string\"},\n    \"evaluation_context\": { \"type\": \"string\" },\n    \"queries\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"community\": {\"type\": \"string\"},\n        \"production\": {\"type\": \"string\"},\n        \"alternatives\": {\"type\": \"string\"},\n        \"trajectory\": {\"type\": \"string\"}\n      },\n      \"required\": [\"community\", \"production\", \"alternatives\", \"trajectory\"]\n    }\n  },\n\"required\": [\"github_url\", \"package_name\", \"package_registry\", \"evaluation_context\", \"queries\"]\n}",
+        "skills": [
+          {
+            "id": "fbd28bc1-c085-4fe0-bf85-306db2ff5dce",
+            "name": "validate_queries",
+            "content": "---\nname: validate_queries\ndescription: Validate generated search queries to ensure they are correctly scoped to the tool under evaluation and not misinterpreting technical terms or acronyms.\nparameters:\n  - name: queries\n    type: object\n    required: true\n    description: The queries object with community, production, alternatives keys\n  - name: tool_name\n    type: string\n    required: true\n    description: The exact name of the tool being evaluated (e.g. langchain)\noutputs:\n  - name: result\n    type: object\n    description: Validation result with corrected queries if issues were detected\n---\n\n## Instructions\n\nAfter generating your JSON output, call `validate_queries` with:\n- `queries`: the queries object you generated\n- `tool_name`: the package name (e.g. langchain)\n\nIf the tool returns `validated: false`, replace your queries with the `corrected_queries` from the result before outputting your final JSON.\n\nThis ensures technical acronyms like MCP (Model Context Protocol), RAG, LLM etc. are never misinterpreted as gaming, consumer, or unrelated domain terms.\n",
+            "files": [
+              {
+                "path": "decomposer_validator/main.py",
+                "content": "#!/usr/bin/env python3\nimport json\nimport sys\nimport re\n\n# Terms that indicate a query has slipped into the wrong domain\nGAMING_TERMS = [\n    \"minecraft\", \"game\", \"gaming\", \"multiplayer\", \"player\", \"block game\",\n    \"server game\", \"mod\", \"modding\", \"world\", \"spawn\", \"biome\"\n]\n\nCONSUMER_TERMS = [\n    \"shopping\", \"product review\", \"buy\", \"price\", \"store\", \"retailer\"\n]\n\n# Known technical acronyms and their correct expansions\n# Used to detect when an acronym has been incorrectly expanded\nTECH_ACRONYMS = {\n    \"mcp\": \"model context protocol\",\n    \"rag\": \"retrieval augmented generation\",\n    \"llm\": \"large language model\",\n    \"api\": \"application programming interface\",\n    \"sdk\": \"software development kit\",\n    \"cli\": \"command line interface\",\n    \"orm\": \"object relational mapping\",\n    \"rpc\": \"remote procedure call\",\n    \"grpc\": \"google remote procedure call\",\n    \"graphql\": \"graph query language\",\n    \"cicd\": \"continuous integration\",\n    \"k8s\": \"kubernetes\",\n    \"mlops\": \"machine learning operations\",\n}\n\nFORBIDDEN_GROUPS = [GAMING_TERMS, CONSUMER_TERMS]\n\n\ndef check_query(query: str, tool_name: str) -> list:\n    issues = []\n    q_lower = query.lower()\n\n    for group in FORBIDDEN_GROUPS:\n        for term in group:\n            if term in q_lower:\n                issues.append(f\"Contains off-domain term '{term}'\")\n\n    return issues\n\n\ndef correct_query(query: str, tool_name: str, key: str) -> str:\n    q = query\n    q_lower = q.lower()\n\n    # Strip gaming terms\n    for term in GAMING_TERMS + CONSUMER_TERMS:\n        pattern = re.compile(re.escape(term), re.IGNORECASE)\n        q = pattern.sub(\"\", q)\n\n    # Collapse multiple spaces\n    q = re.sub(r\"\\s+\", \" \", q).strip()\n\n    # Ensure tool name is present\n    if tool_name.lower() not in q.lower():\n        q = f\"{tool_name} {q}\"\n\n    # If query became too short after stripping, rebuild a safe default\n    if len(q.split()) < 3:\n        defaults = {\n            \"community\": f\"{tool_name} developer community feedback experience\",\n            \"production\": f\"{tool_name} production deployment real world usage\",\n            \"alternatives\": f\"{tool_name} alternatives comparison migration\",\n        }\n        q = defaults.get(key, f\"{tool_name} {key} developer experience\")\n\n    return q.strip()\n\n\ndef execute(params, files):\n    queries = params.get(\"queries\", {})\n    tool_name = params.get(\"tool_name\", \"\")\n\n    all_issues = {}\n    corrected = {}\n    has_issues = False\n\n    for key, query in queries.items():\n        issues = check_query(query, tool_name)\n        if issues:\n            has_issues = True\n            all_issues[key] = issues\n            corrected[key] = correct_query(query, tool_name, key)\n        else:\n            corrected[key] = query\n\n    return {\n        \"validated\": not has_issues,\n        \"issues\": all_issues,\n        \"original_queries\": queries,\n        \"corrected_queries\": corrected\n    }\n\n\nif __name__ == \"__main__\":\n    raw = sys.stdin.read().strip()\n    params = json.loads(raw) if raw else {}\n    print(json.dumps(execute(params, {})))\n",
+                "encoding": "text",
+                "mimeType": "text/plain"
+              }
+            ],
+            "timeoutSeconds": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_1779906249202_cc3mmah6j",
+      "type": "consoleLog",
+      "position": {
+        "x": 135,
+        "y": 75
+      },
+      "data": {
+        "label": "traceDecomposed",
+        "logMessage": "Decomposed - github $decomposer.output.github_url",
+        "onErrorEnabled": false
+      }
+    },
+    {
+      "id": "node_1779910120757_rfmb67yvz",
+      "type": "errorHandler",
+      "position": {
+        "x": 165,
+        "y": 735
+      },
+      "data": {
+        "label": "errorHandler",
+        "message": "$error.message"
+      }
+    },
+    {
+      "id": "node_1780160954330_yesr2qwmh",
+      "type": "agent",
+      "position": {
+        "x": 1170,
+        "y": 75
+      },
+      "data": {
+        "label": "compressionAgent",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.2,
+        "systemInstruction": "You are an evidence compression analyst for a technology evaluation system.\n\nYou receive the merged JSON outputs of seven analysis branches: github health, community sentiment, production adoption, alternatives, security risk, download trajectory, and stack compatibility (which includes a personal repo profile).\n\nYour job:\n1. DEDUPLICATE — collapse claims that multiple branches make into single findings.\n2. WEIGHT each finding by source reliability:\n   - first_party (anything from the stack_compatibility / repo profile branch — facts read from the user's own code) -> \"first_party\" (HIGHEST)\n   - OSV CVE data, GitHub metrics, official release notes -> \"high\"\n   - production case studies, company adoption claims      -> \"medium\"\n   - community discussion (Reddit/HN/forums)               -> \"low\"\n3. PRESERVE FIRST-PARTY FACTS VERBATIM. Never dedupe a first-party fact against an external one. Never downgrade a first-party fact's reliability.\n4. FLAG CONTRADICTIONS — where two branches disagree, record both sides.\n5. IDENTIFY GAPS — dimensions where evidence is thin or missing.\n\nNever invent data. Every finding must trace to something in the input.\nOutput only valid JSON matching the schema. No prose outside the JSON.",
+        "userMessage": "$input.text",
+        "tools": [],
+        "mcpConnections": [],
+        "toolTimeoutSeconds": 30,
+        "maxToolIterations": 30,
+        "isOrchestrator": false,
+        "subAgentLabels": [],
+        "hitlEnabled": false,
+        "hitlSummary": "",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "jsonOutputEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"compressed_findings\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"claim\": {\"type\": \"string\"},\n          \"sources\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}},\n          \"reliability\": {\"type\": \"string\"},\n          \"confidence\": {\"type\": \"number\"}\n        },\n        \"required\": [\"claim\", \"sources\", \"reliability\", \"confidence\"]\n      }\n    },\n    \"contradictions\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"topic\": {\"type\": \"string\"},\n          \"side_a\": {\"type\": \"string\"},\n          \"side_b\": {\"type\": \"string\"}\n        },\n        \"required\": [\"topic\", \"side_a\", \"side_b\"]\n      }\n    },\n    \"major_gaps\": {\"type\": \"array\", \"items\": {\"type\": \"string\"}}\n  },\n  \"required\": [\"compressed_findings\", \"contradictions\", \"major_gaps\"]\n}",
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780161246070_rrjqhk9mj",
+      "type": "merge",
+      "position": {
+        "x": 915,
+        "y": 135
+      },
+      "data": {
+        "label": "mergeFindings",
+        "inputCount": 7,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780161710085_9a03q8t8z",
+      "type": "consoleLog",
+      "position": {
+        "x": 1245,
+        "y": 0
+      },
+      "data": {
+        "label": "traceCompression",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780163015042_n9xwhqtab",
+      "type": "merge",
+      "position": {
+        "x": 1455,
+        "y": 240
+      },
+      "data": {
+        "label": "mergeScoring",
+        "inputCount": 2,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780163025508_gs8wjfziy",
+      "type": "pythonExec",
+      "position": {
+        "x": 1725,
+        "y": 240
+      },
+      "data": {
+        "label": "scoringCompute",
+        "code": "import json, sys\n\n# ===== TUNABLE CONSTANTS (calibrate on a validation set) =====\nDIM_WEIGHTS = {\n    \"maintenance_health\": 0.20, \"security_risk\": 0.20, \"stack_compatibility\": 0.20,\n    \"ecosystem_maturity\": 0.15, \"production_adoption\": 0.15, \"learning_curve\": 0.10,\n}\nMAINT_W = {\"velocity\": 0.25, \"contributors\": 0.20, \"close\": 0.20, \"cadence\": 0.15, \"busfactor\": 0.20}\nECO_W   = {\"maturity_proxy\": 0.30, \"production\": 0.40, \"alternatives\": 0.30}\nLEARN_W = {\"docs\": 0.30, \"tutorials\": 0.20, \"setup\": 0.25, \"api\": 0.15, \"debug\": 0.10}\n\nADOPT_MIN, TRIAL_MIN, HOLD_MIN = 75, 60, 40\nSECURITY_VETO = 30\nCRIT_PENALTY, HIGH_PENALTY = 20, 10\nUNPATCHED_CAP = 25\nCONF_DATA_W, CONF_DET_W, CONF_AGREE_W = 0.50, 0.30, 0.20\n\nPRETTY = {\n    \"maintenance_health\": \"maintenance health\", \"security_risk\": \"security\",\n    \"stack_compatibility\": \"stack compatibility\", \"ecosystem_maturity\": \"ecosystem maturity\",\n    \"production_adoption\": \"production adoption\", \"learning_curve\": \"learning curve\",\n}\n\ndef clamp(x, lo=0, hi=100): return max(lo, min(hi, x))\ndef clamp01(x): return max(0.0, min(1.0, x))\n\ndef norm(p, negative=False):\n    if p is None: return None\n    p = float(p)\n    if 0 <= p <= 1:   frac = p\n    elif 1 < p <= 5:  frac = (p - 1) / 4\n    else:             frac = clamp01(p / 100)\n    return (1 - frac) * 100 if negative else frac * 100\n\ndef wavg(pairs):\n    vals = [(v, w) for v, w in pairs if v is not None]\n    tw = sum(w for _, w in vals)\n    return sum(v * w for v, w in vals) / tw if tw else None\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str): raw = json.loads(raw)\n\ndef walk(node):\n    if isinstance(node, dict):\n        yield node\n        for v in node.values(): yield from walk(v)\n    elif isinstance(node, list):\n        for v in node: yield from walk(v)\n\ngithub = security = community = production = alternatives = trajectory = compression = None\nfor u in walk(raw):\n    if \"commit_velocity\" in u and \"bus_factor\" in u:                 github = github or u\n    elif \"severity_breakdown\" in u or u.get(\"security_posture\"):     security = security or u\n    elif \"scoring_proxies\" in u:                                     community = community or u\n    elif \"production_score\" in u or \"enterprise_case_studies_score\" in u: production = production or u\n    elif \"alternatives\" in u and \"evaluated_tool_wins_when\" in u:    alternatives = alternatives or u\n    elif \"adoption_momentum\" in u:                                   trajectory = trajectory or u\n    elif \"compressed_findings\" in u:                                 compression = compression or u\n\nif not any([github, security, community, production, alternatives, trajectory]):\n    keys = list(raw.keys()) if isinstance(raw, dict) else None\n    print(json.dumps({\"debug_no_branches_found\": True, \"top_type\": type(raw).__name__, \"top_keys\": keys}))\n    sys.exit(0)\n\n# ===== MAINTENANCE HEALTH (contributors now scored) =====\ndef contributor_score(n):\n    if not n: return None\n    if n <= 1:  return 10\n    if n <= 3:  return 35\n    if n <= 10: return 60\n    if n <= 50: return 80\n    return 95\n\nmaintenance = None\nif github:\n    cv = github.get(\"commit_velocity\", {}); bf = github.get(\"bus_factor\", {})\n    ih = github.get(\"issue_health\", {});    rc = github.get(\"release_cadence\", {})\n    maintenance = wavg([\n        (cv.get(\"commit_velocity_trend_score\"),       MAINT_W[\"velocity\"]),\n        (contributor_score(github.get(\"contributor_count\")), MAINT_W[\"contributors\"]),\n        (ih.get(\"issue_close_rate_score\"),            MAINT_W[\"close\"]),\n        (rc.get(\"release_cadence_score\"),             MAINT_W[\"cadence\"]),\n        (bf.get(\"bus_factor_score\"),                  MAINT_W[\"busfactor\"]),\n    ])\n\n# ===== SECURITY (honest missing-data: no feed -> None, not 100) =====\nsecurity_score = None\nif security and security.get(\"data_available\", True) and \"severity_breakdown\" in security:\n    sb = security.get(\"severity_breakdown\", {})\n    crit = sb.get(\"critical\", 0) or 0\n    high = sb.get(\"high\", 0) or 0\n    unp_days = security.get(\"days_since_oldest_unpatched\", 0) or 0\n    security_score = clamp(100 - crit*CRIT_PENALTY - high*HIGH_PENALTY - min(unp_days/30*5, UNPATCHED_CAP))\n\n# ===== LEARNING CURVE =====\nlearning = None\nif community:\n    sp = community.get(\"scoring_proxies\", {})\n    learning = wavg([\n        (norm(sp.get(\"docs_completeness\")),                   LEARN_W[\"docs\"]),\n        (norm(sp.get(\"tutorial_density\")),                    LEARN_W[\"tutorials\"]),\n        (norm(sp.get(\"setup_complexity\"), negative=True),     LEARN_W[\"setup\"]),\n        (norm(sp.get(\"api_surface_area\"), negative=True),     LEARN_W[\"api\"]),\n        (norm(sp.get(\"debugging_difficulty\"), negative=True), LEARN_W[\"debug\"]),\n    ])\n\n# ===== PRODUCTION ADOPTION (use the branch's combined score if present) =====\nproduction_score = None\nif production:\n    if production.get(\"production_score\") is not None:\n        production_score = clamp(float(production[\"production_score\"]))   # already 0-100\n    else:\n        production_score = norm(production.get(\"enterprise_case_studies_score\"))  # 0-1 -> 0-100\n\n# ===== ECOSYSTEM MATURITY =====\nmomentum = trajectory.get(\"adoption_momentum\") if trajectory else None\nalt_count = len(alternatives.get(\"alternatives\", [])) if alternatives else None\nalt_score = clamp(alt_count * 25) if alt_count is not None else None\necosystem = wavg([\n    (norm(momentum) if momentum is not None else None, ECO_W[\"maturity_proxy\"]),\n    (production_score,                                 ECO_W[\"production\"]),\n    (alt_score,                                        ECO_W[\"alternatives\"]),\n])\n\n# ===== STACK COMPATIBILITY =====\n# No real user-repo signal yet -> leave None so it lowers CONFIDENCE instead of\n# triple-counting ecosystem. When the user-repo branch lands, set stack to its score.\n# (To restore the old fallback behaviour, set: stack = ecosystem)\nstack = None\nfor u in walk(raw):\n    if isinstance(u, dict) and \"stack_compatibility\" in u and u.get(\"data_available\"):\n        stack = clamp(float(u[\"stack_compatibility\"]))\n        break\nstack_fallback = stack is None\n\n# Personal-repo overrides (defensive: only if present)\nfor u in walk(raw):\n    if isinstance(u, dict) and \"repo_verdict\" in u:\n        rv = u.get(\"repo_verdict\")\n        if rv == \"MIGRATION_REQUIRED\" and stack is not None:\n            stack = min(stack, 60)   # cap stack score: it's a migration decision\n        elif rv == \"ALREADY_USED\":\n            stack = max(stack or 0, 90)\n        elif rv == \"POOR_FIT\" and stack is not None:\n            stack = min(stack, 35)\n        break\n\n# ===== ASSEMBLE + WEIGHTED TOTAL (wavg renormalises over present dims) =====\ndims = {\n    \"maintenance_health\": maintenance, \"security_risk\": security_score,\n    \"stack_compatibility\": stack,      \"ecosystem_maturity\": ecosystem,\n    \"production_adoption\": production_score, \"learning_curve\": learning,\n}\ndims = {k: (round(clamp(v), 1) if v is not None else None) for k, v in dims.items()}\nweighted = wavg([(dims[k], DIM_WEIGHTS[k]) for k in dims])\nweighted = round(weighted, 1) if weighted is not None else 0.0\n\n# ===== RECOMMENDATION (+ security veto) =====\nif   weighted >= ADOPT_MIN: rec = \"ADOPT\"\nelif weighted >= TRIAL_MIN: rec = \"TRIAL\"\nelif weighted >= HOLD_MIN:  rec = \"HOLD\"\nelse:                       rec = \"AVOID\"\n\nsec = dims[\"security_risk\"]\nsecurity_vetoed = False\nif sec is not None and sec < SECURITY_VETO and rec in (\"ADOPT\", \"TRIAL\"):\n    rec, security_vetoed = \"HOLD\", True\n\n# ===== CONFIDENCE =====\npresent_dims = sum(1 for v in dims.values() if v is not None)\ndata_completeness = present_dims / len(dims)\ndeterministic_coverage = sum(1 for k in (\"maintenance_health\", \"security_risk\") if dims[k] is not None) / 2\ncontradictions = compression.get(\"contradictions\", []) if compression else []\nagreement = max(0.0, 1.0 - len(contradictions) * 0.2)\nconfidence = round(min(0.95, clamp01(\n    CONF_DATA_W * data_completeness + CONF_DET_W * deterministic_coverage + CONF_AGREE_W * agreement\n)), 2)\n\nrecommended_because = [PRETTY[k] for k, v in dims.items() if v is not None and v >= 70]\nprimary_blockers    = [PRETTY[k] for k, v in dims.items() if v is not None and v <= 40]\n\nout = {\n    \"recommendation\": rec, \"weighted_score\": weighted, \"confidence\": confidence,\n    \"dimension_scores\": dims,\n    \"failure_prediction\": github.get(\"failure_prediction\", {}) if github else {},\n    \"recommendation_explanation\": {\n        \"recommended_because\": recommended_because,\n        \"primary_blockers\": primary_blockers,\n        \"security_vetoed\": security_vetoed,\n        \"stack_compatibility_note\": \"No user repo provided; stack compatibility excluded from the score (lowers confidence).\" if stack_fallback else \"\",\n    },\n    \"contradictions\": contradictions,\n    \"major_gaps\": compression.get(\"major_gaps\", []) if compression else [],\n    \"data_completeness\": round(data_completeness, 2),\n}\nprint(json.dumps(out))",
+        "inputExpression": "$input",
+        "timeoutSeconds": 30,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780163179747_93l25gdil",
+      "type": "consoleLog",
+      "position": {
+        "x": 1755,
+        "y": 150
+      },
+      "data": {
+        "label": "traceScoreCompute",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780166513082_ckqgds3x7",
+      "type": "pythonExec",
+      "position": {
+        "x": 2400,
+        "y": 210
+      },
+      "data": {
+        "label": "buildEmailHtml",
+        "code": "import json, sys, re\n\nraw = json.load(sys.stdin)\nif isinstance(raw, str): raw = json.loads(raw)\n\ndef walk(node):\n    if isinstance(node, dict):\n        yield node\n        for v in node.values(): yield from walk(v)\n    elif isinstance(node, list):\n        for v in node: yield from walk(v)\n\nd = next((u for u in walk(raw) if \"executive_summary\" in u and \"dimension_narratives\" in u), {})\n\ntool  = d.get(\"tool_name\", \"—\")\nctx   = d.get(\"evaluation_context\", \"\")\nrec   = d.get(\"recommendation\", \"—\")\nscore = d.get(\"weighted_score\", 0)\nconf  = d.get(\"confidence\", 0)\ndate  = d.get(\"generated_at\", \"\")\ndims  = d.get(\"dimension_scores\", {})\nnarrs = d.get(\"dimension_narratives\", {})\n\n# ── Brand tokens ────────────────────────────────────────────────────\nBG       = \"#0A0E14\"\nSURFACE  = \"#11161F\"\nBORDER   = \"#2A3340\"\nTEXT1    = \"#F4F7FB\"\nTEXT2    = \"#8B9AAC\"\nGOLD     = \"#E3A92C\"\nGOLD_SUB = \"#F4C75A\"\nGOLD_GLOW= \"rgba(227,169,44,0.18)\"\nBAR_BG   = \"#1C2430\"\n\nREC_COLOR = {\"ADOPT\":\"#1F9D57\",\"TRIAL\":\"#2D6BE6\",\"HOLD\":\"#D98A1E\",\"AVOID\":\"#E0473C\"}\ncolor = REC_COLOR.get(rec, GOLD)\n\nDIM_ORDER = [\"maintenance_health\",\"security_risk\",\"stack_compatibility\",\n             \"ecosystem_maturity\",\"production_adoption\",\"learning_curve\"]\nDIM_LABEL = {\"maintenance_health\":\"Maintenance Health\",\"security_risk\":\"Security Risk\",\n             \"stack_compatibility\":\"Stack Compatibility\",\"ecosystem_maturity\":\"Ecosystem Maturity\",\n             \"production_adoption\":\"Production Adoption\",\"learning_curve\":\"Learning Curve\"}\n\ndef score_color(v):\n    if v is None: return TEXT2\n    return \"#36C07A\" if v >= 70 else (GOLD if v >= 50 else \"#E0473C\")\n\ndef highlight(text):\n    # Bold numbers and percentages in gold\n    text = re.sub(r'(\\d+\\.?\\d*(?:\\s*[/%]))', f'<b style=\"color:{GOLD}\">\\\\1</b>', text)\n    # Bold key terms\n    for term in [\"unpatched\",\"critical\",\"patched\",\"bus factor\",\"burnout\",\"accelerating\"]:\n        text = re.sub(f'(?i)({re.escape(term)})', f'<b style=\"color:{TEXT1}\">\\\\1</b>', text)\n    return text\n\ndef bar_html(v):\n    v = max(0, min(100, v or 0))\n    return (f'<table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"180\" style=\"display:inline-block\">'\n            f'<tr><td style=\"background:{BAR_BG};border-radius:3px;padding:0\">'\n            f'<div style=\"background:{GOLD};height:5px;border-radius:3px;width:{int(v*1.8)}px\"></div>'\n            f'</td></tr></table>')\n\n# ── Dimension rows ──────────────────────────────────────────────────\ndim_rows = \"\"\nfor key in DIM_ORDER:\n    v    = dims.get(key)\n    lbl  = DIM_LABEL[key]\n    narr = highlight(narrs.get(key, \"\"))\n    sc   = f\"{v:.0f}\" if v is not None else \"—\"\n    dim_rows += f'''\n    <tr>\n      <td style=\"padding:12px 0;border-bottom:1px solid {BORDER};vertical-align:top\">\n        <div style=\"font-size:13px;font-weight:600;color:{TEXT1};margin-bottom:2px\">{lbl}</div>\n        <div style=\"font-size:11.5px;color:{TEXT2};line-height:1.5;margin-top:4px\">{narr}</div>\n      </td>\n      <td style=\"padding:12px 12px;border-bottom:1px solid {BORDER};vertical-align:middle;text-align:center;width:180px\">\n        {bar_html(v)}\n      </td>\n      <td style=\"padding:12px 0;border-bottom:1px solid {BORDER};vertical-align:middle;text-align:right;width:36px\">\n        <span style=\"font-size:14px;font-weight:700;color:{score_color(v)}\">{sc}</span>\n      </td>\n    </tr>'''\n\ndef section(title, body):\n    return f'''\n    <tr><td colspan=\"3\" style=\"padding:24px 0 0\">\n      <div style=\"font-size:10px;font-weight:700;letter-spacing:1.5px;color:{GOLD};margin-bottom:8px;\n           border-bottom:1px solid {BORDER};padding-bottom:6px\">{title}</div>\n      <p style=\"margin:0;font-size:13.5px;line-height:1.7;color:{TEXT2}\">{body}</p>\n    </td></tr>'''\n\n# ── Full email ──────────────────────────────────────────────────────\nhtml = f'''<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head>\n<body style=\"margin:0;padding:0;background:#07090D;font-family:Helvetica,Arial,sans-serif\">\n\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:#07090D;padding:24px 0\">\n<tr><td align=\"center\">\n<table width=\"640\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:{BG};border-radius:8px;overflow:hidden\">\n\n  <!-- HEADER -->\n  <tr><td style=\"padding:16px 32px;border-bottom:1px solid {BORDER}\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n    <tr>\n      <td>\n        <!-- LOGO SLOT: replace the text below with <img src=\"YOUR_LOGO_URL\" height=\"24\" alt=\"ARIS\"> -->\n        <img src=\"https://raw.githubusercontent.com/eshitakundu/ARIS/main/assets/logo.svg\" height=\"28\" alt=\"ARIS\" style=\"display:block\">\n      </td>\n      <td style=\"text-align:right\">\n        <span style=\"font-size:9px;letter-spacing:1px;color:{TEXT2}\">TECHNOLOGY ADOPTION INTELLIGENCE</span>\n      </td>\n    </tr>\n    </table>\n  </td></tr>\n\n  <!-- TITLE -->\n  <tr><td style=\"padding:28px 32px 0\">\n    <div style=\"font-size:22px;font-weight:700;color:{TEXT1};margin-bottom:4px\">Adoption Decision Brief</div>\n    <div style=\"font-size:12px;color:{TEXT2}\">\n      <span style=\"color:{GOLD};font-weight:600\">{tool}</span>\n      &nbsp;&middot;&nbsp; {ctx} &nbsp;&middot;&nbsp; {date}\n    </div>\n  </td></tr>\n\n  <!-- HERO: BADGE + SUMMARY -->\n  <tr><td style=\"padding:24px 32px\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n    <tr>\n      <!-- Badge -->\n      <td width=\"160\" valign=\"top\">\n        <table cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:{color};border-radius:8px;width:150px;\n               box-shadow:0 0 24px {GOLD_GLOW}\">\n          <tr><td style=\"padding:20px 16px;text-align:center\">\n            <div style=\"font-size:28px;font-weight:700;color:#fff;letter-spacing:1px\">{rec}</div>\n            <div style=\"font-size:15px;font-weight:600;color:rgba(255,255,255,0.9);margin-top:4px\">{score:.1f} / 100</div>\n            <div style=\"font-size:10px;color:rgba(255,255,255,0.6);margin-top:4px;letter-spacing:0.5px\">Confidence {conf*100:.0f}%</div>\n          </td></tr>\n        </table>\n      </td>\n      <!-- Summary -->\n      <td valign=\"top\" style=\"padding-left:20px\">\n        <p style=\"margin:0;font-size:13.5px;line-height:1.7;color:{TEXT2}\">{d.get(\"executive_summary\",\"\")}</p>\n      </td>\n    </tr>\n    </table>\n  </td></tr>\n\n  <!-- DIMENSION SCORES -->\n  <tr><td style=\"padding:0 32px\">\n    <div style=\"font-size:10px;font-weight:700;letter-spacing:1.5px;color:{GOLD};margin-bottom:12px;\n         border-top:1px solid {BORDER};padding-top:20px\">DIMENSION SCORES</div>\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n      {dim_rows}\n    </table>\n  </td></tr>\n\n  <!-- SECTIONS -->\n  <tr><td style=\"padding:0 32px 32px\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n      {section(\"RECOMMENDATION RATIONALE\", d.get(\"recommendation_rationale\",\"\"))}\n      {section(\"ALTERNATIVES TO CONSIDER\", d.get(\"alternatives_summary\",\"\"))}\n      {section(\"CAVEATS &amp; DATA GAPS\", d.get(\"caveats\",\"\"))}\n    </table>\n  </td></tr>\n\n  <!-- FOOTER -->\n  <tr><td style=\"padding:14px 32px;background:{SURFACE};border-top:1px solid {BORDER}\">\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n    <tr>\n      <td>\n        <span style=\"font-size:10px;color:{TEXT2}\">Generated by </span>\n        <span style=\"font-size:10px;color:{GOLD};font-weight:600\">ARIS</span>\n      </td>\n      <td style=\"text-align:right\">\n        <span style=\"font-size:10px;color:{TEXT2}\">Confidence {conf*100:.0f}% &middot; Heuristic decision support</span>\n      </td>\n    </tr>\n    </table>\n  </td></tr>\n\n</table>\n</td></tr>\n</table>\n\n</body></html>'''\n\nprint(html)",
+        "inputExpression": "$synthesizerLLM",
+        "timeoutSeconds": 30,
+        "onErrorEnabled": true,
+        "retryEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780166660547_xq494yzio",
+      "type": "consoleLog",
+      "position": {
+        "x": 2115,
+        "y": 135
+      },
+      "data": {
+        "label": "traceSynthesizer",
+        "logMessage": "$input",
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780167908137_lsxw5ro5r",
+      "type": "sendEmail",
+      "position": {
+        "x": 2715,
+        "y": 195
+      },
+      "data": {
+        "label": "sendEmail",
+        "credentialId": "fbb242bd-0e79-4f7e-8a6f-352cdf7003c4",
+        "to": "$userInput.body.recipient_email",
+        "subject": "ARIS Brief — $synthesizerLLM.tool_name → $synthesizerLLM.recommendation ($synthesizerLLM.weighted_score/100)",
+        "emailBody": "$buildEmailHtml.output",
+        "retryEnabled": true,
+        "onErrorEnabled": false,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780168965902_c4vo2lhsq",
+      "type": "llm",
+      "position": {
+        "x": 2070,
+        "y": 225
+      },
+      "data": {
+        "label": "synthesizerLLM",
+        "model": "openai/gpt-oss-120b",
+        "temperature": 0.3,
+        "systemInstruction": "You are a technology adoption analyst writing a concise, repo-specific Adoption Decision Brief.\n\nYou receive:\n- USER REPO PROFILE: archetype, key libraries already in use, existing competitors of the evaluated tool, README excerpt, plus a personal_repo_commentary block written by an engineer who read the repo. Treat this as first-party ground truth.\n- SCORING: structured JSON with recommendation, weighted_score, confidence, dimension_scores, primary_blockers, contradictions, major_gaps.\n- FINDINGS: compressed evidence from six external analysis branches.\n\nWrite the brief. RULES:\n- Never invent numbers. Use only the scores from SCORING.\n- dimension_scores: copy from SCORING exactly. If a value is null in SCORING, output null. Never substitute 0.\n- Every dimension_narrative must be 1-2 sentences that explain the score with at least one concrete fact — prefer facts from USER REPO PROFILE when relevant to that dimension.\n- The stack_compatibility narrative MUST explicitly reference: the repo archetype, existing_competitors (if any), and the migration_effort_signal. Generic statements like \"this is a Python package with N deps\" are unacceptable.\n- recommendation_rationale MUST be personalized: state why this verdict for THIS repo, citing the repo's archetype, existing stack, or competitors. Not a generic recommendation.\n- Use personal_repo_commentary.personal_commentary as the primary source for repo-specific reasoning — quote or paraphrase concrete facts from it.\n- If repo_verdict is MIGRATION_REQUIRED or ALREADY_USED, the brief must frame the decision accordingly (migration cost vs benefit, or upgrade vs status quo).\n- alternatives_summary: 2-3 sentences on best alternatives given THIS user's evaluation context and existing stack.\n- caveats: what data was missing and what that means for the confidence score.\n- generated_at: today's date YYYY-MM-DD.\n- Output only valid JSON matching the schema.",
+        "userMessage": "Tool: $userInput.body.repo_or_tool\nEvaluation context: $userInput.body.evaluation_context\n\nUSER REPO PROFILE + PERSONAL COMMENTARY (first-party, ground truth — outranks external evidence):\n$stackCompatibility\n\nSCORING:\n$scoringCompute\n\nFINDINGS AND EVIDENCE (external sources):\n$compressionAgent",
+        "batchModeEnabled": false,
+        "jsonOutputEnabled": true,
+        "jsonOutputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"tool_name\": { \"type\": \"string\" },\n    \"evaluation_context\": { \"type\": \"string\" },\n    \"recommendation\": { \"type\": \"string\" },\n    \"weighted_score\": { \"type\": \"number\" },\n    \"confidence\": { \"type\": \"number\" },\n    \"generated_at\": { \"type\": \"string\" },\n\n    \"dimension_scores\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"maintenance_health\": { \"type\": \"number\" },\n        \"security_risk\": { \"type\": \"number\" },\n        \"stack_compatibility\": { \"type\": \"number\" },\n        \"ecosystem_maturity\": { \"type\": \"number\" },\n        \"production_adoption\": { \"type\": \"number\" },\n        \"learning_curve\": { \"type\": \"number\" }\n      }\n    },\n\n    \"brief_headline\": { \"type\": \"string\" },\n    \"executive_summary\": { \"type\": \"string\" },\n    \"recommendation_rationale\": { \"type\": \"string\" },\n\n    \"dimension_narratives\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"maintenance_health\": { \"type\": \"string\" },\n        \"security_risk\": { \"type\": \"string\" },\n        \"stack_compatibility\": { \"type\": \"string\" },\n        \"ecosystem_maturity\": { \"type\": \"string\" },\n        \"production_adoption\": { \"type\": \"string\" },\n        \"learning_curve\": { \"type\": \"string\" }\n      }\n    },\n\n    \"alternatives_summary\": { \"type\": \"string\" },\n    \"caveats\": { \"type\": \"string\" }\n  },\n\n  \"required\": [\n    \"tool_name\",\n    \"evaluation_context\",\n    \"recommendation\",\n    \"weighted_score\",\n    \"confidence\",\n    \"generated_at\",\n    \"dimension_scores\",\n    \"executive_summary\",\n    \"recommendation_rationale\",\n    \"dimension_narratives\",\n    \"alternatives_summary\",\n    \"caveats\"\n  ]\n}",
+        "credentialId": "2f9e38cc-5603-4f87-8520-338effdb8e99",
+        "isReasoningModel": false,
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780226615406_nyb4645x0",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": -135
+      },
+      "data": {
+        "label": "communitySentiment",
+        "executeWorkflowId": "3db11677-41e6-4209-8eb6-090ddc124102",
+        "targetWorkflowName": "ARIS - Community Sentiment branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227051350_0gynmhbuv",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": 465
+      },
+      "data": {
+        "label": "github",
+        "executeWorkflowId": "adf8c98e-5335-41f8-915f-65c3e73a21bd",
+        "targetWorkflowName": "ARIS - Github branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "retryEnabled": true,
+        "onErrorEnabled": true,
+        "active": true
+      }
+    },
+    {
+      "id": "node_1780227444840_setwms3kb",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": 345
+      },
+      "data": {
+        "label": "trajectory",
+        "executeWorkflowId": "52302c9c-1401-4987-8be6-da4b5e89d7c9",
+        "targetWorkflowName": "ARIS - trajectory branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780227891787_nm2jeymov",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": 225
+      },
+      "data": {
+        "label": "securityRisk",
+        "executeWorkflowId": "5de368cf-4357-4897-b242-f19db2cc6286",
+        "targetWorkflowName": "ARIS - Security Risk branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780228104393_wh5oxabo5",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": -15
+      },
+      "data": {
+        "label": "productionAdoption",
+        "executeWorkflowId": "4ba3f8f5-6a03-4beb-973f-4af51781c509",
+        "targetWorkflowName": "ARIS - Production Adoption Branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "active": true,
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780228225980_ajqmvf4bh",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": 105
+      },
+      "data": {
+        "label": "alternative",
+        "executeWorkflowId": "998b4522-970d-4b19-bad9-182b05aa575f",
+        "targetWorkflowName": "ARIS - Alternative Branch",
+        "executeInput": "$decomposer",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    },
+    {
+      "id": "node_1780778052657_z8qfc692h",
+      "type": "execute",
+      "position": {
+        "x": 570,
+        "y": 825
+      },
+      "data": {
+        "label": "stackCompatibility",
+        "executeWorkflowId": "89d8bd7e-ba20-4267-8c79-d92691e5ceed",
+        "targetWorkflowName": "stack-compatibility-branch",
+        "executeInput": "$input",
+        "executeTargets": [],
+        "executeInputMappings": [
+          {
+            "key": "data",
+            "value": "$decomposer"
+          }
+        ],
+        "targetWorkflowInputFields": [
+          {
+            "key": "data"
+          }
+        ],
+        "retryEnabled": true,
+        "onErrorEnabled": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_node_1779905759799_xvw1xzxe5_node_1779905799164_g8fjplkqe_1779905808312",
+      "source": "node_1779905759799_xvw1xzxe5",
+      "target": "node_1779905799164_g8fjplkqe",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1779905759799_xvw1xzxe5_node_1779906069294_d11m75xwz_1779906075501",
+      "source": "node_1779905759799_xvw1xzxe5",
+      "target": "node_1779906069294_d11m75xwz",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1779906249202_cc3mmah6j_1779906259638",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1779906249202_cc3mmah6j",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780161246070_rrjqhk9mj_node_1780160954330_yesr2qwmh_1780161591616",
+      "source": "node_1780161246070_rrjqhk9mj",
+      "target": "node_1780160954330_yesr2qwmh",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780160954330_yesr2qwmh_node_1780161710085_9a03q8t8z_1780161718175",
+      "source": "node_1780160954330_yesr2qwmh",
+      "target": "node_1780161710085_9a03q8t8z",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780160954330_yesr2qwmh_node_1780163015042_n9xwhqtab_1780163043470",
+      "source": "node_1780160954330_yesr2qwmh",
+      "target": "node_1780163015042_n9xwhqtab",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780161246070_rrjqhk9mj_node_1780163015042_n9xwhqtab_1780163045630",
+      "source": "node_1780161246070_rrjqhk9mj",
+      "target": "node_1780163015042_n9xwhqtab",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780163015042_n9xwhqtab_node_1780163025508_gs8wjfziy_1780163057866",
+      "source": "node_1780163015042_n9xwhqtab",
+      "target": "node_1780163025508_gs8wjfziy",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780163025508_gs8wjfziy_node_1780163179747_93l25gdil_1780163195094",
+      "source": "node_1780163025508_gs8wjfziy",
+      "target": "node_1780163179747_93l25gdil",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780168965902_c4vo2lhsq_node_1780166660547_xq494yzio_1780169293217",
+      "source": "node_1780168965902_c4vo2lhsq",
+      "target": "node_1780166660547_xq494yzio",
+      "sourceHandle": "output",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780168965902_c4vo2lhsq_node_1780166513082_ckqgds3x7_1780169296255",
+      "source": "node_1780168965902_c4vo2lhsq",
+      "target": "node_1780166513082_ckqgds3x7",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780163025508_gs8wjfziy_node_1780168965902_c4vo2lhsq_1780169298949",
+      "source": "node_1780163025508_gs8wjfziy",
+      "target": "node_1780168965902_c4vo2lhsq",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780166513082_ckqgds3x7_node_1780167908137_lsxw5ro5r_1780169379787",
+      "source": "node_1780166513082_ckqgds3x7",
+      "target": "node_1780167908137_lsxw5ro5r",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780226615406_nyb4645x0_1780226615406",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780226615406_nyb4645x0",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780227051350_0gynmhbuv_1780227051350",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780227051350_0gynmhbuv",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780227444840_setwms3kb_1780227444840",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780227444840_setwms3kb",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780227891787_nm2jeymov_1780227891788",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780227891787_nm2jeymov",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1779910120757_rfmb67yvz_1780227936834",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780228104393_wh5oxabo5_1780228104393",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780228104393_wh5oxabo5",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780228225980_ajqmvf4bh_1780228225980",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780228225980_ajqmvf4bh",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780226615406_nyb4645x0_node_1780161246070_rrjqhk9mj_1780230231228",
+      "source": "node_1780226615406_nyb4645x0",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-0"
+    },
+    {
+      "id": "edge_node_1780228104393_wh5oxabo5_node_1780161246070_rrjqhk9mj_1780230232898",
+      "source": "node_1780228104393_wh5oxabo5",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-1"
+    },
+    {
+      "id": "edge_node_1780228225980_ajqmvf4bh_node_1780161246070_rrjqhk9mj_1780230234560",
+      "source": "node_1780228225980_ajqmvf4bh",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-2"
+    },
+    {
+      "id": "edge_node_1780227891787_nm2jeymov_node_1780161246070_rrjqhk9mj_1780230235799",
+      "source": "node_1780227891787_nm2jeymov",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-3"
+    },
+    {
+      "id": "edge_node_1780227444840_setwms3kb_node_1780161246070_rrjqhk9mj_1780230238032",
+      "source": "node_1780227444840_setwms3kb",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-4"
+    },
+    {
+      "id": "edge_node_1780227051350_0gynmhbuv_node_1780161246070_rrjqhk9mj_1780230240483",
+      "source": "node_1780227051350_0gynmhbuv",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-5"
+    },
+    {
+      "id": "edge_node_1780160954330_yesr2qwmh_node_1779910120757_rfmb67yvz_1780657805852",
+      "source": "node_1780160954330_yesr2qwmh",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780163025508_gs8wjfziy_node_1779910120757_rfmb67yvz_1780657814377",
+      "source": "node_1780163025508_gs8wjfziy",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780168965902_c4vo2lhsq_node_1779910120757_rfmb67yvz_1780657823837",
+      "source": "node_1780168965902_c4vo2lhsq",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780166513082_ckqgds3x7_node_1779910120757_rfmb67yvz_1780657832726",
+      "source": "node_1780166513082_ckqgds3x7",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1779906069294_d11m75xwz_node_1780778052657_z8qfc692h_1780778059981",
+      "source": "node_1779906069294_d11m75xwz",
+      "target": "node_1780778052657_z8qfc692h",
+      "sourceHandle": "output",
+      "targetHandle": "input"
+    },
+    {
+      "id": "edge_node_1780778052657_z8qfc692h_node_1780161246070_rrjqhk9mj_1780913711036",
+      "source": "node_1780778052657_z8qfc692h",
+      "target": "node_1780161246070_rrjqhk9mj",
+      "sourceHandle": "output",
+      "targetHandle": "input-6"
+    },
+    {
+      "id": "edge_node_1780226615406_nyb4645x0_node_1779910120757_rfmb67yvz_1780949911286",
+      "source": "node_1780226615406_nyb4645x0",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228104393_wh5oxabo5_node_1779910120757_rfmb67yvz_1780949914647",
+      "source": "node_1780228104393_wh5oxabo5",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780228225980_ajqmvf4bh_node_1779910120757_rfmb67yvz_1780949916997",
+      "source": "node_1780228225980_ajqmvf4bh",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227891787_nm2jeymov_node_1779910120757_rfmb67yvz_1780949919964",
+      "source": "node_1780227891787_nm2jeymov",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227444840_setwms3kb_node_1779910120757_rfmb67yvz_1780949922573",
+      "source": "node_1780227444840_setwms3kb",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780227051350_0gynmhbuv_node_1779910120757_rfmb67yvz_1780949927137",
+      "source": "node_1780227051350_0gynmhbuv",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    },
+    {
+      "id": "edge_node_1780778052657_z8qfc692h_node_1779910120757_rfmb67yvz_1780949929334",
+      "source": "node_1780778052657_z8qfc692h",
+      "target": "node_1779910120757_rfmb67yvz",
+      "sourceHandle": "error",
+      "targetHandle": "output"
+    }
+  ]
+}
