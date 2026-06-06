@@ -134,9 +134,275 @@ def _extract_signals(d):
     return out
 
 
-def main():
+# GіЧGіЧ Shared chrome GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+
+def _header(c, h_mm, subtitle='', tool='', date_str=''):
+    H_pts = h_mm * mm
+    # Dark background
+    c.setFillColor(HDR_BG)
+    c.rect(0, H - H_pts, W, H_pts, fill=1, stroke=0)
+    # Gold top accent line
+    c.setFillColor(GOLD)
+    c.rect(0, H - 2.5, W, 2.5, fill=1, stroke=0)
+
+    mid_y = H - H_pts / 2
+
+    # ARIS wordmark
+    c.setFillColor(GOLD)
+    c.setFont('Courier-Bold', 15)
+    c.drawString(LM, mid_y + 2*mm, 'ARIS')
+
+    # Subtitle (brief type)
+    c.setFillColor(HexColor('#A1A1AA'))
+    c.setFont('Helvetica', 7.5)
+    c.drawString(LM + 38, mid_y + 2*mm + 1, subtitle)
+
+    # Tool name (top-right, bold white)
+    if tool:
+        c.setFillColor(white)
+        c.setFont('Courier-Bold', 10)
+        c.drawRightString(RM, mid_y + 2*mm + 1, tool.upper())
+
+    # Date (below tool name)
+    if date_str:
+        c.setFillColor(MUTED)
+        c.setFont('Courier', 6.5)
+        c.drawRightString(RM, mid_y - 2*mm, date_str)
+
+
+def _footer(c, page, total, date_str):
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.5)
+    c.line(LM, 18*mm, RM, 18*mm)
+    c.setFillColor(MUTED)
+    c.setFont('Courier', 6)
+    c.drawString(LM, 14*mm, 'ARIS -+ Technology Adoption Intelligence -+ heuristic decision support, not investment advice')
+    c.drawRightString(RM, 14*mm, f'{date_str}  -+  {page} of {total}')
+
+
+def _section_title(c, y, title):
+    """Gold left-border section header. Returns y below the rule."""
+    c.setFillColor(GOLD)
+    c.rect(LM, y - 1, 2.5, 10, fill=1, stroke=0)
+    c.setFillColor(TEXT)
+    c.setFont('Helvetica-Bold', 7.5)
+    c.drawString(LM + 5, y, title)
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.4)
+    c.line(LM, y - 3.5, RM, y - 3.5)
+    return y - 11
+
+
+# GіЧGіЧ Page 1: Executive Brief GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+
+def draw_page1(c, d):
+    today = date.today().strftime('%d %b %Y').upper()
+    tool  = (d.get('tool_name') or d.get('package_name') or d.get('evaluated_tool') or '').strip()
+    ctx   = (d.get('evaluation_context') or '').strip()
+
+    # White page background
+    c.setFillColor(white)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    HDR_H = 38
+    _header(c, HDR_H, subtitle='Adoption Decision Brief', tool=tool, date_str=today)
+
+    # Context subtitle below header
+    if ctx:
+        ctx_short = ctx[:80] + ('GЧЊ' if len(ctx) > 80 else '')
+        c.setFillColor(GOLD_DIM)
+        c.setFont('Helvetica', 7.5)
+        c.drawString(LM, H - HDR_H*mm - 5*mm, ctx_short)
+
+    y = H - HDR_H*mm - (12*mm if ctx else 8*mm)
+
+    # GіЧGіЧ Verdict block GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    rec   = (d.get('recommendation') or 'HOLD').upper()
+    score = float(d.get('weighted_score') or 0)
+    conf  = float(d.get('confidence') or 0)
+    vc    = VERDICT_COLOR.get(rec, HOLD_C)
+
+    VERDICT_H = 26*mm
+    SPLIT     = W * 0.52
+
+    # Left: colored panel with verdict text
+    c.setFillColor(vc)
+    c.rect(LM, y - VERDICT_H, SPLIT - LM - 4*mm, VERDICT_H, fill=1, stroke=0)
+
+    c.setFillColor(white)
+    c.setFont('Helvetica-Bold', 28)
+    c.drawString(LM + 5*mm, y - 17*mm, rec)
+
+    vdesc = VERDICT_DESC.get(rec, '')
+    c.setFont('Helvetica', 7.5)
+    c.drawString(LM + 5*mm, y - 23.5*mm, vdesc[:55])
+
+    # Right: light panel with score
+    c.setFillColor(PANEL_BG)
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.6)
+    c.rect(SPLIT, y - VERDICT_H, RM - SPLIT, VERDICT_H, fill=1, stroke=1)
+
+    panel_cx = SPLIT + (RM - SPLIT) / 2
+    c.setFillColor(vc)
+    c.setFont('Courier-Bold', 40)
+    c.drawCentredString(panel_cx - 8, y - 17*mm, f'{score:.0f}')
+
+    c.setFillColor(MUTED)
+    c.setFont('Courier', 8.5)
+    c.drawString(panel_cx + 16, y - 13*mm, '/ 100')
+
+    c.setFillColor(MUTED)
+    c.setFont('Helvetica', 7)
+    c.drawCentredString(panel_cx, y - 23*mm, f'Confidence  {conf*100:.0f}%')
+
+    y -= VERDICT_H + 9*mm
+
+    # GіЧGіЧ Dimension Breakdown GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    y = _section_title(c, y, 'DIMENSION BREAKDOWN')
+    y -= 4*mm
+
+    LABEL_W = 44*mm
+    WGHT_W  = 10*mm
+    SCOR_W  = 9*mm
+    BAR_H   = 5.5*mm
+    ROW_GAP = 5*mm
+    BAR_W   = BODY_W - LABEL_W - WGHT_W - SCOR_W - 4*mm
+
+    dims  = d.get('dimension_scores') or {}
+    narrs = d.get('dimension_narratives') or {}
+
+    for key, label, weight in DIMS:
+        val  = dims.get(key)
+        narr = (narrs.get(key) or '').strip()
+        bc   = _band_color(val)
+
+        # Dimension label
+        c.setFillColor(TEXT)
+        c.setFont('Helvetica', 8.5)
+        c.drawString(LM, y - 3, label)
+
+        # Weight
+        c.setFillColor(MUTED)
+        c.setFont('Courier', 6.5)
+        c.drawString(LM + LABEL_W, y - 3, weight)
+
+        # Bar track
+        bx = LM + LABEL_W + WGHT_W
+        c.setFillColor(BAR_BG)
+        c.roundRect(bx, y - BAR_H + 1.5*mm, BAR_W, BAR_H - 1.5*mm, 1.5, fill=1, stroke=0)
+
+        # Bar fill GЧі color by score band
+        if val is not None:
+            fw = BAR_W * max(0.0, min(100.0, float(val))) / 100.0
+            c.setFillColor(bc)
+            if fw > 3:
+                c.roundRect(bx, y - BAR_H + 1.5*mm, fw, BAR_H - 1.5*mm, 1.5, fill=1, stroke=0)
+
+        # Score value
+        c.setFillColor(bc)
+        c.setFont('Courier-Bold', 9)
+        sv = f'{val:.0f}' if val is not None else 'GЧі'
+        c.drawString(bx + BAR_W + 3*mm, y - 3, sv)
+
+        y -= BAR_H
+
+        # Per-dimension narrative (one line, muted)
+        if narr:
+            note = narr[:96] + ('GЧЊ' if len(narr) > 96 else '')
+            c.setFillColor(MUTED)
+            c.setFont('Helvetica', 6.5)
+            c.drawString(LM + LABEL_W + WGHT_W, y, note)
+            y -= 4*mm
+
+        y -= ROW_GAP
+
+        # Subtle row rule
+        c.setStrokeColor(RULE)
+        c.setLineWidth(0.25)
+        c.line(LM, y + 2, RM, y + 2)
+
+    y -= 3*mm
+
+    # GіЧGіЧ Security veto alert GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    sec_score = dims.get('security_risk')
+    if sec_score is not None and float(sec_score) < 30:
+        c.setFillColor(HexColor('#FEF2F2'))
+        c.setStrokeColor(AVOID_C)
+        c.setLineWidth(0.8)
+        c.roundRect(LM, y - 9*mm, BODY_W, 9*mm, 2, fill=1, stroke=1)
+        c.setFillColor(AVOID_C)
+        c.setFont('Helvetica-Bold', 7.5)
+        c.drawString(LM + 4*mm, y - 5.5*mm, 'Gмс  SECURITY VETO')
+        c.setFillColor(HexColor('#991B1B'))
+        c.setFont('Helvetica', 7.5)
+        c.drawString(LM + 36*mm, y - 5.5*mm,
+                     f'Score {float(sec_score):.0f} < 30 GЧі verdict capped at HOLD regardless of weighted total.')
+        y -= 13*mm
+
+    # GіЧGіЧ Key signals GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    signals = _extract_signals(d)
+    if signals and y > 52*mm:
+        y = _section_title(c, y, 'KEY SIGNALS')
+        y -= 3*mm
+        for sig in signals[:5]:
+            if y < 26*mm: break
+            c.setFillColor(GOLD)
+            c.setFont('Courier-Bold', 9)
+            c.drawString(LM, y, '-+')
+            c.setFillColor(BODY)
+            c.setFont('Helvetica', 7.5)
+            c.drawString(LM + 4.5*mm, y, sig[:93])
+            y -= 5*mm
+
+    _footer(c, 1, 2, today)
+
+
+# GіЧGіЧ Page 2: Intelligence Brief GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+def generate(d):
     pass
+
+
+    if source == '-':
+        raw = json.load(sys.stdin)
+    else:
+        raw = json.loads(Path(source).read_text(encoding='utf-8'))
+    d = _find_verdict(raw)
+    if d is None:
+        sys.exit('No verdict object found in input JSON. Expected keys: recommendation, weighted_score.')
+    return d
+
+
+def main():
+    # GіЧGіЧ Heym pythonExec mode: invoked with no CLI arguments GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    if len(sys.argv) == 1:
+        raw = json.load(sys.stdin)
+        d   = _find_verdict(raw) or (raw if isinstance(raw, dict) else {})
+        pdf = generate(d)
+        tool_slug = re.sub(r'[^a-z0-9_-]', '',
+                           (d.get('tool_name') or d.get('package_name') or 'brief').lower())
+        filename  = f'ARIS-brief-{tool_slug}.pdf'
+        print(json.dumps({
+            'pdf_b64':  base64.b64encode(pdf).decode(),
+            'filename': filename,
+            'verdict':  d.get('recommendation', 'HOLD'),
+            'score':    d.get('weighted_score', 0),
+        }))
+        return
+
+    # GіЧGіЧ CLI mode GіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧGіЧ
+    import argparse
+    p = argparse.ArgumentParser(description='ARIS PDF Report Generator')
+    p.add_argument('source', help='Verdict JSON file path, or - for stdin')
+    p.add_argument('-o', '--output', help='Output PDF path (default: ARIS-brief-{tool}.pdf)')
+    args = p.parse_args()
+
+    d   = load_verdict(args.source)
+    out = args.output or f'ARIS-brief-{(d.get("tool_name") or "brief").lower().replace(" ", "-")}.pdf'
+    pdf = generate(d)
+    Path(out).write_bytes(pdf)
+    print(f'GЃє  {out}', file=sys.stderr)
+
 
 if __name__ == '__main__':
     main()
-
