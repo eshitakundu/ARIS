@@ -359,38 +359,141 @@ def draw_page1(c, d):
 
 
 # GöÇGöÇ Page 2: Intelligence Brief GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
-def generate(d):
-    pass
+
+def draw_page2(c, d):
+    today = date.today().strftime('%d %b %Y').upper()
+    tool  = (d.get('tool_name') or d.get('package_name') or d.get('evaluated_tool') or '').strip()
+
+    # White background
+    c.setFillColor(white)
+    c.rect(0, 0, W, H, fill=1, stroke=0)
+
+    _header(c, 22, subtitle='Intelligence Brief', tool=tool, date_str=today)
+    y = H - 22*mm - 10*mm
+
+    # GöÇGöÇ Recommendation Rationale GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    rationale = (d.get('recommendation_rationale') or d.get('rationale') or '').strip()
+    if rationale:
+        y = _section_title(c, y, 'RECOMMENDATION RATIONALE')
+        y -= 4*mm
+        for line in _wrap(rationale, 93):
+            if y < 25*mm: break
+            c.setFillColor(BODY)
+            c.setFont('Helvetica', 8)
+            c.drawString(LM, y, line)
+            y -= 5*mm
+        y -= 7*mm
+
+    # GöÇGöÇ Alternatives GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    alts = d.get('alternatives') or []
+    alts_text = ''
+    if isinstance(alts, str):
+        alts_text = alts
+        alts = []
+    if not alts:
+        alts_text = alts_text or (d.get('alternatives_summary') or '')
+
+    if alts or alts_text:
+        y = _section_title(c, y, 'ALTERNATIVES CONSIDERED')
+        y -= 4*mm
+
+        if alts:
+            # 3-column table: tool | description | when to choose
+            COL_W = (32*mm, 74*mm, 54*mm)
+            xpos  = (LM, LM + COL_W[0], LM + COL_W[0] + COL_W[1])
+
+            # Header row
+            c.setFillColor(HexColor('#F4F4F5'))
+            c.rect(LM, y - 7*mm, BODY_W, 7*mm, fill=1, stroke=0)
+            c.setStrokeColor(RULE)
+            c.setLineWidth(0.35)
+            c.rect(LM, y - 7*mm, BODY_W, 7*mm, fill=0, stroke=1)
+            for hdr, x in zip(('TOOL', 'DESCRIPTION / FIT', 'WHEN TO CHOOSE'), xpos):
+                c.setFillColor(MUTED)
+                c.setFont('Helvetica-Bold', 6)
+                c.drawString(x + 2*mm, y - 4.5*mm, hdr)
+            y -= 7*mm
+
+            for i, alt in enumerate(alts[:4]):
+                if y < 30*mm: break
+                name = (alt.get('name') or alt.get('tool') or '')[:24]
+                desc = (alt.get('description') or alt.get('fit') or alt.get('summary') or '')[:55]
+                when = (alt.get('win_condition') or alt.get('when') or alt.get('choose_when') or '')[:40]
+
+                row_bg = white if i % 2 == 0 else HexColor('#FAFAFA')
+                c.setFillColor(row_bg)
+                c.rect(LM, y - 7*mm, BODY_W, 7*mm, fill=1, stroke=0)
+                c.setStrokeColor(RULE)
+                c.setLineWidth(0.2)
+                c.line(LM, y - 7*mm, RM, y - 7*mm)
+
+                for txt, x in ((name, xpos[0]), (desc, xpos[1]), (when, xpos[2])):
+                    c.setFillColor(TEXT)
+                    c.setFont('Helvetica', 7)
+                    c.drawString(x + 2*mm, y - 4.5*mm, txt)
+                y -= 7*mm
+            y -= 6*mm
+        else:
+            for line in _wrap(alts_text, 93):
+                if y < 25*mm: break
+                c.setFillColor(BODY)
+                c.setFont('Helvetica', 8)
+                c.drawString(LM, y, line)
+                y -= 5*mm
+            y -= 7*mm
+
+    # GöÇGöÇ Caveats GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    caveats = d.get('caveats') or []
+    if isinstance(caveats, str):
+        caveats = [caveats] if caveats.strip() else []
+    if caveats:
+        y = _section_title(c, y, 'CAVEATS & CONFIDENCE NOTES')
+        y -= 4*mm
+        for cav in caveats[:6]:
+            if not cav or y < 35*mm: break
+            lines = _wrap(str(cav), 91)
+            for i, line in enumerate(lines[:2]):
+                prefix = '-+  ' if i == 0 else '    '
+                c.setFillColor(MUTED)
+                c.setFont('Helvetica', 7.5)
+                c.drawString(LM, y, prefix + line)
+                y -= 4.5*mm
+            y -= 2*mm
+
+    # GöÇGöÇ Methodology footnote GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    NOTE_Y = 28*mm
+    c.setStrokeColor(RULE)
+    c.setLineWidth(0.4)
+    c.line(LM, NOTE_Y + 5, RM, NOTE_Y + 5)
+    c.setFillColor(HexColor('#A1A1AA'))
+    c.setFont('Helvetica', 6)
+    c.drawString(LM, NOTE_Y,
+        'Scoring methodology: all dimension scores computed by deterministic Python GÇö no LLM ever produces a number.')
+    c.drawString(LM, NOTE_Y - 4.5,
+        'Confidence = 0.50+ùdata-completeness + 0.30+ùdeterministic-coverage + 0.20+ùagreement, capped at 0.95.')
+
+    _footer(c, 2, 2, today)
 
 
-    if source == '-':
-        raw = json.load(sys.stdin)
-    else:
-        raw = json.loads(Path(source).read_text(encoding='utf-8'))
-    d = _find_verdict(raw)
-    if d is None:
-        sys.exit('No verdict object found in input JSON. Expected keys: recommendation, weighted_score.')
-    return d
+# GöÇGöÇ Core GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
 
+def generate(d: dict) -> bytes:
+    """Generate 2-page PDF from a verdict dict. Returns raw bytes."""
+    buf = io.BytesIO()
+    c   = rl_canvas.Canvas(buf, pagesize=A4)
+    c.setTitle(f"ARIS GÇö {d.get('tool_name') or d.get('package_name') or 'Adoption Decision Brief'}")
+    c.setAuthor('ARIS GÇö Technology Adoption Intelligence')
+    c.setSubject('Adoption Decision Brief')
 
-def main():
-    # GöÇGöÇ Heym pythonExec mode: invoked with no CLI arguments GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
-    if len(sys.argv) == 1:
-        raw = json.load(sys.stdin)
-        d   = _find_verdict(raw) or (raw if isinstance(raw, dict) else {})
-        pdf = generate(d)
-        tool_slug = re.sub(r'[^a-z0-9_-]', '',
-                           (d.get('tool_name') or d.get('package_name') or 'brief').lower())
-        filename  = f'ARIS-brief-{tool_slug}.pdf'
-        print(json.dumps({
-            'pdf_b64':  base64.b64encode(pdf).decode(),
-            'filename': filename,
-            'verdict':  d.get('recommendation', 'HOLD'),
-            'score':    d.get('weighted_score', 0),
-        }))
-        return
+    draw_page1(c, d)
+    c.showPage()
+    draw_page2(c, d)
+    c.showPage()
+    c.save()
 
-    # GöÇGöÇ CLI mode GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    buf.seek(0)
+    return buf.read()
+
     import argparse
     p = argparse.ArgumentParser(description='ARIS PDF Report Generator')
     p.add_argument('source', help='Verdict JSON file path, or - for stdin')
