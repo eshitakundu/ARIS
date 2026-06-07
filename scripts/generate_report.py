@@ -494,6 +494,36 @@ def generate(d: dict) -> bytes:
     buf.seek(0)
     return buf.read()
 
+
+def load_verdict(source: str) -> dict:
+    if source == '-':
+        raw = json.load(sys.stdin)
+    else:
+        raw = json.loads(Path(source).read_text(encoding='utf-8'))
+    d = _find_verdict(raw)
+    if d is None:
+        sys.exit('No verdict object found in input JSON. Expected keys: recommendation, weighted_score.')
+    return d
+
+
+def main():
+    # GöÇGöÇ Heym pythonExec mode: invoked with no CLI arguments GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
+    if len(sys.argv) == 1:
+        raw = json.load(sys.stdin)
+        d   = _find_verdict(raw) or (raw if isinstance(raw, dict) else {})
+        pdf = generate(d)
+        tool_slug = re.sub(r'[^a-z0-9_-]', '',
+                           (d.get('tool_name') or d.get('package_name') or 'brief').lower())
+        filename  = f'ARIS-brief-{tool_slug}.pdf'
+        print(json.dumps({
+            'pdf_b64':  base64.b64encode(pdf).decode(),
+            'filename': filename,
+            'verdict':  d.get('recommendation', 'HOLD'),
+            'score':    d.get('weighted_score', 0),
+        }))
+        return
+
+    # GöÇGöÇ CLI mode GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ
     import argparse
     p = argparse.ArgumentParser(description='ARIS PDF Report Generator')
     p.add_argument('source', help='Verdict JSON file path, or - for stdin')
