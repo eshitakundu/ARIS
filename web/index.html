@@ -449,4 +449,154 @@ footer{border-top:1px solid var(--b1);padding:28px 28px;position:relative;z-inde
 
       <div class="stats" role="list" aria-label="Key statistics">
         <div class="stat-c" role="listitem"><div class="sn">8</div><div class="sl">data sources<br>fused live</div></div>
+        <div class="stat-c" role="listitem"><div class="sn">7</div><div class="sl">parallel<br>branches</div></div>
+        <div class="stat-c" role="listitem"><div class="sn">0</div><div class="sl">LLM-invented<br>numbers</div></div>
+      </div>
+
+      <div class="ctas">
+        <a class="cta-primary" href="#run" id="hero-cta">Evaluate a Dependency</a>
+        <a class="cta-ghost" href="https://github.com/eshitakundu/ARIS" target="_blank" rel="noopener" aria-label="View on GitHub">GitHub</a>
+      </div>
+    </div>
+
+    <!-- RIGHT GÇö Verdict Engine -->
+    <div class="ve r0 d2" aria-label="ARIS verdict system">
+      <div class="ve-top">
+        <span class="ve-lbl">Verdict Engine</span>
+        <span class="ve-live"><span class="ve-dot" aria-hidden="true"></span>Live scoring</span>
+      </div>
+      <div class="vg" role="list">
+        <div class="vc adopt" role="listitem"><div class="vc-w">ADOPT</div><div class="vc-r">Score GëÑ 75</div><div class="vc-d">Strong evidence. Proceed with confidence.</div></div>
+        <div class="vc trial" role="listitem"><div class="vc-w">TRIAL</div><div class="vc-r">Score GëÑ 60</div><div class="vc-d">Good signal. Pilot before committing.</div></div>
+        <div class="vc hold"  role="listitem"><div class="vc-w">HOLD</div> <div class="vc-r">Score GëÑ 40</div><div class="vc-d">Mixed signals. Wait for clarity.</div></div>
+        <div class="vc avoid" role="listitem"><div class="vc-w">AVOID</div><div class="vc-r">Score &lt; 40</div><div class="vc-d">Poor signals. Choose an alternative.</div></div>
+      </div>
+      <div class="ve-bar" aria-live="polite">
+        <span class="ve-blbl">Weighted Score</span>
+        <div class="ve-track" aria-hidden="true"><div class="ve-fill" id="ve-fill" style="width:0%"></div></div>
+        <span class="ve-val" id="ve-val">-+</span>
+        <div class="ve-badge" id="ve-badge" style="background:transparent;color:var(--dim);border-color:var(--b1)">-+</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="shint" aria-hidden="true">
+    <div class="sline"></div>
+    <span class="slbl">Scroll</span>
+  </div>
+</section>
+
+<!-- GöÇGöÇ INTELLIGENCE GÇö pipeline + branches combined GöÇGöÇGöÇGöÇGöÇGöÇGöÇ -->
+<section id="intel">
+  <div class="w">
+    <!-- section header: compact 2-col -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:end;margin-bottom:32px" class="r0">
+      <div>
+        <div style="font-family:var(--fm);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--g);margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="display:inline-block;width:22px;height:1px;background:var(--g)"></span>The System</div>
+        <h2 style="font-family:var(--fd);font-weight:700;font-size:clamp(24px,3vw,38px);color:var(--hi);letter-spacing:-.025em;line-height:1.08">Fixed DAG. Seven parallel branches. One verdict.</h2>
+      </div>
+      <p style="font-size:14.5px;color:var(--mut);line-height:1.72">Same input, same path, every time. A branch that fails <em>lowers confidence</em>, not the score GÇö missing data is honest, not hidden. Click any pipeline stage to expand.</p>
+    </div>
+
+    <!-- 5-step pipeline -->
+    <div class="pipe r0 d1" role="list">
+      <div class="ps" role="listitem" tabindex="0" aria-expanded="false">
+        <div class="ps-n">01 -+</div>
+        <div class="ps-t">Decompose</div>
+        <div class="ps-s">Resolve tool, detect registry, validate queries.</div>
+        <div class="ps-d">An LLM agent resolves the tool name, detects the package registry, normalises the GitHub slug, and runs a <code style="font-family:var(--fm);font-size:9.5px;color:var(--g)">validate_queries</code> skill before any branch fires.</div>
+        <span class="tk tk-l">LLM agent</span>
+        <div class="ps-v" aria-hidden="true">Gû+</div>
+      </div>
+      <div class="ps" role="listitem" tabindex="0" aria-expanded="false">
+        <div class="ps-n">02 -+</div>
+        <div class="ps-t">Seven Branches</div>
+        <div class="ps-s">All branches fire simultaneously.</div>
+        <div class="burst" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="ps-d">Community -+ Production -+ Alternatives -+ Security -+ Downloads -+ GitHub Health -+ Stack Compatibility. Each has its own retry logic; a dropped branch lowers confidence, not the score.</div>
+        <span class="tk tk-b">LLM + Python</span>
+        <div class="ps-v" aria-hidden="true">Gû+</div>
+      </div>
+      <div class="ps" role="listitem" tabindex="0" aria-expanded="false">
+        <div class="ps-n">03 -+</div>
+        <div class="ps-t">Extract &amp; Score</div>
+        <div class="ps-s">PythonExec computes every dimension score deterministically.</div>
+        <div class="ps-d">The custom <code style="font-family:var(--fm);font-size:9.5px;color:var(--g)">PythonExec</code> node runs deterministic Python inline. All six dimension scores use documented, named-constant formulas GÇö no LLM touches a number.</div>
+        <span class="tk tk-p">Python only</span>
+        <div class="ps-v" aria-hidden="true">Gû+</div>
+      </div>
+      <div class="ps" role="listitem" tabindex="0" aria-expanded="false">
+        <div class="ps-n">04 -+</div>
+        <div class="ps-t">Synthesize</div>
+        <div class="ps-s">LLM writes rationale. Scores pass through verbatim.</div>
+        <div class="ps-d">LLM receives computed scores and structured findings, writes rationale, alternatives, and caveats. It cannot alter any figure. Numbers are passed through, not generated.</div>
+        <span class="tk tk-l">LLM narrative</span>
+        <div class="ps-v" aria-hidden="true">Gû+</div>
+      </div>
+      <div class="ps" role="listitem" tabindex="0" aria-expanded="false">
+        <div class="ps-n">05 -+</div>
+        <div class="ps-t">Deliver</div>
+        <div class="ps-s">HTML email + A4 PDF to your inbox.</div>
+        <div class="ps-d">Verdict badge, six scored dimensions, rationale, alternatives, caveats. Readable in one glance. Auditable in full detail.</div>
+        <span class="tk tk-p">Python</span>
+        <div class="ps-v" aria-hidden="true">Gû+</div>
+      </div>
+    </div>
+
+    <!-- 7 branches GÇö compact grid, no section header needed -->
+    <div class="bheader r0 d2">
+      <span class="bh-l">Seven intelligence branches</span>
+      <span class="bh-r">Hover a branch to see its data source</span>
+    </div>
+    <div class="bgrid r0 d3">
+      <div class="bc" data-branch="community">
+        <div class="bc-ico">=ƒÅÖn+Å</div>
+        <div class="bc-t">Community Sentiment</div>
+        <div class="bc-src">Tavily GåÆ LLM</div>
+        <div class="bc-b">Friction, enthusiasm, docs quality and setup complexity from real developer discourse.</div>
+        <span class="tk tk-l" style="margin-top:8px">LLM</span>
+      </div>
+      <div class="bc" data-branch="production">
+        <div class="bc-ico">=ƒÅ¡</div>
+        <div class="bc-t">Production Adoption</div>
+        <div class="bc-src">Tavily -+ GitHub -+ Stack Overflow</div>
+        <div class="bc-b">Enterprise case studies, stars, SO answers, package dependents.</div>
+        <span class="tk tk-b" style="margin-top:8px">LLM + Python</span>
+      </div>
+      <div class="bc" data-branch="alternatives">
+        <div class="bc-ico">=ƒöÇ</div>
+        <div class="bc-t">Alternatives</div>
+        <div class="bc-src">Tavily GåÆ LLM</div>
+        <div class="bc-b">Ranked alternatives and migration stories shaped by your use case.</div>
+        <span class="tk tk-l" style="margin-top:8px">LLM</span>
+      </div>
+      <div class="bc" data-branch="security">
+        <div class="bc-ico">=ƒ¢ín+Å</div>
+        <div class="bc-t">Security Risk</div>
+        <div class="bc-src">OSV.dev GåÆ Python</div>
+        <div class="bc-b"><b style="color:var(--txt)">Unpatched CVEs only.</b> Age-penalised. Patched history excluded.</div>
+        <span class="tk tk-p" style="margin-top:8px">Python</span>
+      </div>
+      <div class="bc" data-branch="trajectory">
+        <div class="bc-ico">=ƒôê</div>
+        <div class="bc-t">Download Trajectory</div>
+        <div class="bc-src">PyPI -+ npm GåÆ LLM</div>
+        <div class="bc-b">Velocity: accelerating, stable, or declining. Trend context from Tavily.</div>
+        <span class="tk tk-l" style="margin-top:8px">LLM</span>
+      </div>
+      <div class="bc" data-branch="github">
+        <div class="bc-ico">=ƒÆÜ</div>
+        <div class="bc-t">GitHub Health</div>
+        <div class="bc-src">GitHub API GåÆ Python</div>
+        <div class="bc-b">Commit velocity, bus factor, issue close-rate, release cadence.</div>
+        <span class="tk tk-p" style="margin-top:8px">Python</span>
+      </div>
+      <div class="bc wide" data-branch="stack" style="position:relative">
+        <span class="bc-new">New</span>
+        <div class="bc-ico">=ƒº¬</div>
+        <div class="bc-t">Stack Compatibility</div>
+        <div class="bc-src">Your repo manifest + GitHub API GåÆ Python</div>
+        <div class="bc-b">Parses <code style="font-family:var(--fm);font-size:10px;color:var(--g)">requirements.txt</code>, <code style="font-family:var(--fm);font-size:10px;color:var(--g)">pyproject.toml</code>, or <code style="font-family:var(--fm);font-size:10px;color:var(--g)">package.json</code> from <em>your</em> repo to score real version fit. Supply <code style="font-family:var(--fm);font-size:10px;color:var(--g)">your_repo_url</code> to activate GÇö without it, this dimension is excluded and the other five reweight to fill the gap.</div>
+        <span class="tk tk-p" style="margin-top:8px">Python</span>
+      </div>
 </body></html>
