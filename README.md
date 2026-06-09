@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="ARIS GÇö Technology Adoption Intelligence" width="900">
+<img src="assets/banner.png" alt="ARIS â€” Technology Adoption Intelligence" width="900">
 
-<h3>Should you adopt that dependency? ARIS turns that question into a scored, evidence-backed verdict.</h3>
+<h3>Should you adopt that dependency? ARIS turns that question into a scored, evidence-backed verdict â€” grounded in your repository.</h3>
 
 <p>
 <img src="https://img.shields.io/badge/status-research%20preview-E3A92C?style=flat-square" alt="status">
@@ -17,7 +17,7 @@
 <a href="#why-aris-is-different">Why it&#39;s different</a> &nbsp;&middot;&nbsp;
 <a href="#how-it-works">How it works</a> &nbsp;&middot;&nbsp;
 <a href="#the-score">The score</a> &nbsp;&middot;&nbsp;
-<a href="#validation">Validation</a> &nbsp;&middot;&nbsp;
+<a href="#run-it">Run it</a> &nbsp;&middot;&nbsp;
 <a href="#roadmap">Roadmap</a>
 </p>
 
@@ -25,17 +25,20 @@
 
 ---
 
-**ARIS** evaluates a software tool or library and produces an **Adoption Decision Brief** GÇö a 0GÇô100 score across six dimensions, a single verdict (**ADOPT / TRIAL / HOLD / AVOID**), narrative reasoning, alternatives for your specific use case, and an honest confidence figure GÇö delivered to your inbox as a formatted email and PDF.
+**ARIS** evaluates a software tool or library and produces an **Adoption Decision Brief** â€” a 0â€“100 score across six dimensions, a single verdict (**ADOPT / KEEP / TRIAL / HOLD / AVOID**), narrative reasoning grounded in *your* repository, alternatives shaped by your use case, and an honest confidence figure â€” delivered to your inbox as a formatted email and PDF.
 
 It replaces the ad-hoc *"google it, check the stars, and hope"* process teams fall back on when deciding whether to take on a dependency.
 
-> **The one idea that matters:** LLMs read prose and write prose. **Every number comes from deterministic Python** GÇö no model ever invents a score. That single constraint is what makes every figure in the brief auditable.
+> **The one idea that matters:** LLMs read prose and write prose. **Every number comes from deterministic Python** â€” no model ever invents a score. That single constraint is what makes every figure in the brief auditable.
+
+> **The second idea that matters:** A generic brief is a lame brief. ARIS reads *your* repository's manifest, README, and structure â€” then writes commentary specific to your codebase. If you already use a competing tool, ARIS detects it. If the tool is already a declared dependency, ARIS reframes the verdict as KEEP, not ADOPT.
 
 <table>
 <tr>
 <td><b>8</b><br>data sources fused</td>
 <td><b>7</b><br>parallel branches</td>
 <td><b>6</b><br>weighted dimensions</td>
+<td><b>5</b><br>verdict labels</td>
 <td><b>0</b><br>LLM-invented numbers</td>
 </tr>
 </table>
@@ -46,16 +49,27 @@ It replaces the ad-hoc *"google it, check the stars, and hope"* process teams fa
 
 <img src="assets/sample-brief.png" alt="Sample Adoption Decision Brief" width="640">
 
-A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email and an A4 PDF.
+A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **terminal-style repo scan** (archetype, key libraries, existing competitors, migration effort), an **engineer's take** â€” a personalised commentary block written about *your* specific codebase â€” a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email and an A4 PDF.
+
+The brief contains five layers, in this order:
+
+1. **Verdict tile** â€” one of five labels, the weighted score, and a confidence figure.
+2. **Quick-scan KPI strip** â€” stack fit, security, maintenance, production adoption.
+3. **Repo scan block** â€” terminal-style readout of what ARIS found in your codebase: archetype, declared libraries, any detected competitors, migration effort signal.
+4. **Engineer's take** â€” a pull-quoted commentary, written after reading your README and manifest, that names what would have to change for the tool to fit.
+5. **Dimension scores with narratives** â€” six metrics, each with a one-or-two-sentence explanation that cites concrete facts.
 
 ---
 
 ## Why ARIS is different
 
 - **Deterministic scoring, LLM commentary.** No LLM ever produces a score. Numbers come from Python with documented formulas; LLMs only turn web prose into structured findings and write the narrative.
-- **Honest confidence.** Missing data lowers *confidence*, not the *score*. A tool can score well at low confidence GÇö a fundamentally different signal from scoring poorly at high confidence.
-- **Security = live surface, not history.** The security score counts only **unpatched** CVEs GÇö the real attack surface on a current release GÇö not a tool's entire disclosure history (which unfairly punishes popular, well-audited libraries).
-- **A fixed DAG, not an autonomous agent.** The graph is decided at design time, so the same input runs the same path. Predictable, explainable, reproducible GÇö the right properties for decision support.
+- **Repo-aware reasoning.** ARIS scans your repository's manifests (`pyproject.toml`, `requirements.txt`, `package.json`, etc.), README, language stats, and top-level structure â€” then writes commentary that names your actual stack. Generic "this is a Python package with N dependencies" briefs do not pass our acceptance criteria.
+- **Competitor detection.** A built-in tool-category map identifies when a tool you're considering competes with something already in your repo. Evaluating Qdrant against a repo that already declares FAISS is a *migration* decision, not a *greenfield* one â€” and the brief frames it that way.
+- **Verdict-aware framing.** When the tool is already declared in your repo, the verdict is `KEEP`, not `ADOPT`. The brief reframes around upgrade safety and version-ceiling risk, not a fresh adoption pitch.
+- **Honest confidence.** Missing data lowers *confidence*, not the *score*. A tool can score well at low confidence â€” a fundamentally different signal from scoring poorly at high confidence.
+- **Security = live surface, not history.** The security score counts only **unpatched** CVEs â€” the real attack surface on a current release â€” not a tool's entire disclosure history (which unfairly punishes popular, well-audited libraries).
+- **A fixed DAG, not an autonomous agent.** The graph is decided at design time, so the same input runs the same path. Predictable, explainable, reproducible â€” the right properties for decision support.
 
 ---
 
@@ -63,54 +77,64 @@ A one-look brief: the **verdict badge** with weighted score and confidence, **si
 
 <img src="assets/architecture.png" alt="ARIS pipeline" width="900">
 
-Input &rarr; decompose &rarr; **seven parallel intelligence branches** &rarr; compress &rarr; score &rarr; synthesize &rarr; deliver. Blue nodes are LLM/agent (text in, structure out); gold nodes are deterministic Python (all scoring and counting).
+Input â†’ decompose â†’ **seven parallel intelligence branches** â†’ compress â†’ score â†’ synthesize â†’ deliver. Blue nodes are LLM/agent (text in, structure out); gold nodes are deterministic Python (all scoring and counting).
 
 | Branch | Source | Engine | Produces |
 |---|---|---|---|
 | Community Sentiment | Tavily | LLM | friction & enthusiasm signals; docs / setup / debugging proxies |
-| Production Adoption | Tavily + GitHub + Stack Overflow + deps | LLM + Python | named enterprises, stars, SO, dependents GåÆ a combined production score |
+| Production Adoption | Tavily + GitHub + Stack Overflow + deps | LLM + Python | named enterprises, stars, SO, dependents â†’ a combined production score |
 | Alternatives | Tavily | LLM | ranked alternatives, migration stories, win / lose conditions |
 | Security Risk | OSV.dev | Python | unpatched CVE severity breakdown, vulnerability patterns |
 | Download Trajectory | PyPI / npm (+ Tavily) | LLM | velocity: accelerating / stable / declining |
 | GitHub Health | GitHub API | Python | commit velocity, bus factor, issue health, release cadence, failure prediction |
-| Stack Compatibility | GitHub API (your repo's manifest) | Python | real dep-manifest match: ecosystem fit, existing dependency detection, version conflict signal |
+| **Stack Compatibility** | GitHub API (your repo's manifests + README + tree + languages) | Python + LLM | archetype detection, declared-dep parsing, **competitor detection** via tool-category map, repo profile, **personalised engineer commentary**, and a verdict label specific to your repo (`ALREADY_USED` / `MIGRATION_REQUIRED` / `FIT` / `POOR_FIT`) |
 
-Every branch has retries and routes failures to a shared error handler GÇö a branch that drops out simply **lowers confidence** rather than corrupting the score.
+Every branch has retries and routes failures to a shared error handler â€” a branch that drops out simply **lowers confidence** rather than corrupting the score.
 
-> **Engineering note GÇö a custom node in the engine.** ARIS runs on a self-hosted **fork of Heym**. Two problems pushed me to extend the engine itself: its agent node couldn't execute scoring code inline, and several nodes flooded the model with so much raw API / MCP context that generation failed. So I added a custom **`PythonExec`** node to the fork GÇö deterministic Python that (1) computes every score and (2) extracts just the fields each LLM needs from large payloads before they reach it. That node is now the backbone of ARIS: all three scoring stages and every branch's data-extraction adapter run on it.
+> **Engineering note â€” a custom node in the engine.** ARIS runs on a self-hosted **fork of Heym**. Two problems pushed me to extend the engine itself: its agent node couldn't execute scoring code inline, and several nodes flooded the model with so much raw API / MCP context that generation failed. So I added a custom **`PythonExec`** node to the fork â€” deterministic Python that (1) computes every score and (2) extracts just the fields each LLM needs from large payloads before they reach it. That node is now the backbone of ARIS: all three scoring stages, every branch's data-extraction adapter, and the repo-profile bundler run on it.
+
+### The Stack Compatibility branch in detail
+
+This is the branch that makes the brief feel like a teammate wrote it instead of a search engine. It does five things:
+
+1. **Manifest parsing** â€” fetches `pyproject.toml`, `requirements.txt`, `Pipfile`, `setup.cfg`, and `package.json` from your repo. Parses dependencies, optional-dependency groups (PEP 621), Poetry groups, and PEP 735 dependency-groups. Canonicalises package names per PEP 503.
+2. **Repo profiling** â€” pulls the README excerpt, GitHub language stats, top-level directory listing, and repo metadata (stars, description, topics). Detects the project's **archetype**: `library`, `web_service`, `ml_pipeline`, `ml_research`, `data_pipeline`, `cli`, or `infra`.
+3. **Competitor detection** â€” a maintained category map (`vector_db`, `orm`, `web_framework`, `queue`, `dataframe`, `llm_framework`, ...) identifies tools that compete with the one you're evaluating. If `polars` is being evaluated and `pandas` is already declared, that's flagged as an existing competitor.
+4. **Personalised commentary** â€” a dedicated LLM node receives the manifest, README, archetype, and competitor list. It produces a structured commentary: what the repo currently does for this problem, what would change, concrete integration concerns, migration effort signal (`low`/`medium`/`high`/`not_applicable`), a 4-6 sentence personal commentary in an engineer's voice, and a verdict-for-this-repo label.
+5. **Score and override** â€” the deterministic score reflects ecosystem fit; the verdict-for-this-repo label overrides the final recommendation band when appropriate (`ALREADY_USED` â†’ `KEEP`, `POOR_FIT` â†’ `AVOID`).
+
+The output is bundled and passed *directly* to the synthesizer alongside the compressed external findings â€” so the brief always cites concrete facts about your codebase.
 
 ---
 
 ## The score
 
-Six weighted dimensions, each 0GÇô100. Every weight is a named, commented constant GÇö a documented heuristic, not a number buried in a formula.
+Six weighted dimensions, each 0â€“100. Every weight is a named, commented constant â€” a documented heuristic, not a number buried in a formula.
 
 | Dimension | Weight | How it is computed |
 |---|:--:|---|
 | Maintenance Health | 20% | GitHub: commit velocity, contributors, issue close-rate, release cadence, bus factor |
-| Security Risk | 20% | OSV, **unpatched only**: `100 GêÆ 20+ùcritical GêÆ 10+ùhigh GêÆ age penalty` |
-| Stack Compatibility | 20% | Target-repo dependency match (excluded until a repo is supplied) |
+| Security Risk | 20% | OSV, **unpatched only**: `100 âˆ’ 20Ã—critical âˆ’ 10Ã—high âˆ’ age penalty` |
+| Stack Compatibility | 20% | Target-repo manifest match + competitor detection + archetype fit |
 | Ecosystem Maturity | 15% | download momentum + production score + alternatives count |
-| Production Adoption | 15% | case studies + GitHub stars + Stack Overflow + dependents |
+| Production Adoption | 15% | case studies + GitHub stars + Stack Overflow + dependents (+ first-party boost if `ALREADY_USED`) |
 | Learning Curve | 10% | docs, tutorials, setup, API surface, debugging friction |
 
-**Verdict bands** &nbsp;`ADOPT GëÑ 75` &nbsp;-+&nbsp; `TRIAL GëÑ 60` &nbsp;-+&nbsp; `HOLD GëÑ 40` &nbsp;-+&nbsp; `AVOID < 40`
+### Verdict bands
 
-**Security veto** GÇö a security score below `30` caps the verdict at **HOLD** regardless of the weighted total. Live attack surface overrides a strong average.
+| Verdict | When | Color |
+|---|---|---|
+| **ADOPT** | Weighted score â‰¥ 75 and no repo-level signal against it | Green |
+| **KEEP** | Tool is already a declared dependency in your repo (`repo_verdict == ALREADY_USED`) | Green |
+| **TRIAL** | Weighted score â‰¥ 60 | Blue |
+| **HOLD** | Weighted score â‰¥ 40, *or* security veto fires | Amber |
+| **AVOID** | Weighted score < 40, *or* ecosystem mismatch detected (`repo_verdict == POOR_FIT`) | Red |
 
-**Confidence** GÇö `0.50 +ù data-completeness + 0.30 +ù deterministic-coverage + 0.20 +ù agreement`, capped at `0.95`.
+**Security veto** â€” a security score below `30` caps the verdict at **HOLD** regardless of the weighted total. Live attack surface overrides a strong average.
 
----
+**First-party production boost** â€” when the tool is `ALREADY_USED` in your repo, ARIS treats your codebase as a verified production reference and adds a small boost to the production-adoption score. The rationale: external case studies sometimes miss what your own deployment proves.
 
-## Validation
-
-Heuristics are only as good as the evidence that they rank reality correctly. ARIS ships with a validation plan: run a labelled set of tools (FastAPI / React / NumPy = healthy GåÆ a deprecated package GåÆ an abandoned one = AVOID) through the workflow and prove the **ranking** holds.
-
-- **Pairwise win-rate** GëÑ 90%, with **zero** cases where a healthy tool scores below a known-bad one.
-- **Band hit-rate** GëÑ 70% exact, GëÑ 90% within -¦1 band.
-- **Spearman -ü** GëÑ 0.7 between ARIS's score and ground-truth health rank.
-
-A sample output GÇö a full Adoption Decision Brief for **langchain** GÇö is available at [`docs/sample_report_langchain.pdf`](docs/sample_report_langchain.pdf).
+**Confidence** â€” `0.50 Ã— data-completeness + 0.30 Ã— deterministic-coverage + 0.20 Ã— agreement`, capped at `0.95`.
 
 ---
 
@@ -121,17 +145,21 @@ ARIS is a Heym workflow. Trigger the `userInput` node with:
 | Field | Example | Notes |
 |---|---|---|
 | `repo_or_tool` | `langchain` *or* a GitHub URL | the tool under evaluation |
-| `evaluation_context` | `building a RAG pipeline in Python` | your actual use case GÇö shapes every query |
-| `your_repo_url` | *(optional)* | enables real stack-compatibility scoring |
+| `evaluation_context` | `building a RAG pipeline in Python` | your actual use case â€” shapes every query |
+| `your_repo_url` | `https://github.com/you/your-project` | activates repo-aware scoring + personalised commentary |
 | `recipient_email` | `you@company.com` | where the brief is delivered |
 
-**Configuration** GÇö provide these as **Heym credentials**, never inline in nodes: an **NVIDIA NIM** API key (LLM), a **Tavily** key (search), a **GitHub** token (repo data), and **SMTP** credentials (email). OSV, PyPI, and npm need no keys.
+If `your_repo_url` is omitted, ARIS still runs â€” it just falls back to a generic brief without the Stack Compatibility branch contribution, and confidence drops accordingly. The other five dimensions reweight to fill the gap.
+
+**Configuration** â€” provide these as **Heym credentials**, never inline in nodes: an **NVIDIA NIM** API key (LLM), a **Tavily** key (search), a **GitHub** token (repo data), and **SMTP** credentials (email). OSV, PyPI, and npm need no keys.
 
 ---
 
 ## Design system
 
-ARIS has its own visual identity GÇö **"Verdict"**: a near-black canvas, a single metallic-gold accent used only as chrome, semantic verdict badges, and monospaced numerals for every figure so the output reads like an instrument, not a marketing page. The brand carries across the email, the PDF, and this repo. Logo and tokens live in [`assets/`](assets/).
+ARIS has its own visual identity â€” **"Verdict"**: a near-black canvas, a single metallic-gold accent used only as chrome, semantic verdict badges, terminal-style scan blocks for repo data, and monospaced numerals for every figure so the output reads like an instrument, not a marketing page. The brand carries across the email, the PDF, the landing page, and this repo. Logo and tokens live in [`assets/`](assets/).
+
+The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, score gauges, color-coded metric bars) for at-a-glance scanning, and **terminal** (monospaced prompts, command-line output blocks, `// section headers`) to signal that this is an engineering tool â€” not a marketing report.
 
 ---
 
@@ -139,45 +167,61 @@ ARIS has its own visual identity GÇö **"Verdict"**: a near-black canvas, a singl
 
 ```
 ARIS/
-Gö£GöÇGöÇ README.md
-Gö£GöÇGöÇ LICENSE
-Gö£GöÇGöÇ assets/                 logo, banner, architecture diagram, sample brief, brand marks
-Gö£GöÇGöÇ docs/
-Göé   GööGöÇGöÇ sample_report_langchain.pdf   a real Adoption Decision Brief (langchain, PDF)
-Gö£GöÇGöÇ scripts/
-Göé   GööGöÇGöÇ generate_report.py  server-side reportlab PDF generator (takes verdict JSON)
-GööGöÇGöÇ web/
-    GööGöÇGöÇ index.html          landing page with live simulator, replay walkthrough, API form
+â”œâ”€â”€ README.md
+â”œâ”€â”€ LICENSE
+â”œâ”€â”€ assets/                 logo, banner, architecture diagram, sample brief, brand marks
+â”œâ”€â”€ docs/
+â”‚   â””â”€â”€ sample_report_langchain.pdf   a real Adoption Decision Brief (langchain, PDF)
+â”œâ”€â”€ scripts/
+â”‚   â””â”€â”€ generate_report.py  server-side reportlab PDF generator (takes verdict JSON)
+â”œâ”€â”€ web/
+â”‚   â””â”€â”€ index.html          landing page with live simulator and submission form
+â””â”€â”€ workflows/
+    â”œâ”€â”€ main/main.json
+    â””â”€â”€ branches/
+        â”œâ”€â”€ stack-compatibility-branch.json   archetype + competitor detection + personal commentary
+        â”œâ”€â”€ github-branch.json
+        â”œâ”€â”€ security-risk-branch.json
+        â”œâ”€â”€ production-adoption-branch.json
+        â”œâ”€â”€ community-sentiment-branch.json
+        â”œâ”€â”€ alternative-branch.json
+        â””â”€â”€ trajectory-branch.json
 ```
 
-The Heym workflow itself is maintained on the canvas; exported graphs are **not** committed here because they can embed API keys.
+The Heym workflow itself is maintained on the canvas; exported graphs in `workflows/` are reference copies â€” they should not be committed with real API keys inline.
 
 ---
 
 ## Roadmap
 
-- [x] **Seven-branch architecture** GÇö Community Sentiment, Production Adoption, Alternatives, Security Risk, Download Trajectory, GitHub Health, Stack Compatibility all run in parallel; a dropped branch lowers confidence, not the score.
-- [x] **Stack-compatibility branch** GÇö parses `requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, or `package.json` from the user's own repo; detects existing dependencies; scores ecosystem fit against the tool under evaluation.
-- [x] **Deterministic scoring** GÇö all six dimension scores computed in `pythonExec` Python nodes; LLMs receive scores and write narrative only.
-- [x] **PDF report** GÇö `scripts/generate_report.py` (reportlab) generates a branded multi-page Adoption Decision Brief from the workflow's verdict JSON; linked from the email as "Generate Full Report".
-- [x] **Frontend** GÇö interactive landing page with live score simulator, scoring audit tooltips, branch-to-dimension live link, brief replay walkthrough, and jsPDF client-side report download.
-- [ ] **Validation run** GÇö the labelled set above, results published in this README.
-- [ ] **Reproducibility** GÇö pin model + temperature 0, snapshot raw responses by input hash, per-tool cache.
+- [x] **Seven-branch architecture** â€” Community Sentiment, Production Adoption, Alternatives, Security Risk, Download Trajectory, GitHub Health, Stack Compatibility all run in parallel; a dropped branch lowers confidence, not the score.
+- [x] **Stack Compatibility branch** â€” parses `requirements.txt`, `pyproject.toml`, `Pipfile`, `setup.cfg`, or `package.json` from the user's own repo; detects existing dependencies; scores ecosystem fit against the tool under evaluation.
+- [x] **Repo profiling** â€” README excerpt, language stats, top-level structure, and archetype detection (`library` / `web_service` / `ml_pipeline` / `data_pipeline` / `cli` / `infra` / `ml_research`).
+- [x] **Competitor detection** â€” built-in tool-category map identifies competing tools already declared in the target repo and reframes the brief as a migration decision when applicable.
+- [x] **KEEP verdict** â€” when a tool is already declared, the brief reframes around staying healthy on the current version, not fresh adoption.
+- [x] **Personalised engineer commentary** â€” dedicated LLM node produces a 4-6 sentence pull-quote commentary specific to the target repo, displayed in the email as a serif italic block.
+- [x] **First-party production boost** â€” when a tool is already used in the target repo, the repo itself counts as a verified production reference.
+- [x] **Deterministic scoring** â€” all six dimension scores computed in `pythonExec` Python nodes; LLMs receive scores and write narrative only.
+- [x] **Dashboard + terminal email design** â€” KPI tiles, score gauges, terminal-style repo scan, engineer's-take pull-quote, color-coded dimension bars.
+- [x] **PDF report** â€” `scripts/generate_report.py` (reportlab) generates a branded multi-page Adoption Decision Brief from the workflow's verdict JSON; linked from the email as "Generate Full Report".
+- [x] **Frontend** â€” landing page with live score simulator and submission form.
+- [ ] **Validation run** â€” labelled set of tools (FastAPI / React / NumPy = healthy through a deprecated package to an abandoned one), with pairwise win-rate, band hit-rate, and Spearman Ï published in this README.
+- [ ] **Reproducibility** â€” pin model + temperature 0, snapshot raw responses by input hash, per-tool cache.
 - [ ] **Human-in-the-loop** gate before delivery.
-- [ ] **Triggers** GÇö webhook / Slack command / CI, and a multi-tool comparison mode.
+- [ ] **Triggers** â€” webhook / Slack command / CI, and a multi-tool comparison mode.
 
 ---
 
 ## Contributing
 
-Issues and ideas are welcome GÇö open an issue describing the tool/edge case ARIS mis-scored and (if you can) the dimension at fault. Scoring weights live as documented constants and are meant to be calibrated against the validation set, not guessed.
+Issues and ideas are welcome â€” open an issue describing the tool/edge case ARIS mis-scored and (if you can) the dimension at fault. Scoring weights and category maps live as documented constants in the workflow JSON and are meant to be calibrated against the validation set, not guessed.
 
 ## License
 
-MIT GÇö see [`LICENSE`](LICENSE).
+MIT â€” see [`LICENSE`](LICENSE).
 
 ## Acknowledgements
 
 Built on a self-hosted fork of **Heym**. Data from **OSV.dev**, **Tavily**, the **GitHub API**, **PyPI**, and **npm**. Inference via **gpt-oss-120b** served by **NVIDIA NIM**.
 
-<div align="center"><sub><b>ARIS</b> -+ Technology Adoption Intelligence -+ the color of careful judgment</sub></div>
+<div align="center"><sub><b>ARIS</b> Â· Technology Adoption Intelligence Â· the color of careful judgment</sub></div>
