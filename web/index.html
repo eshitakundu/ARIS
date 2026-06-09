@@ -599,4 +599,104 @@ footer{border-top:1px solid var(--b1);padding:28px 28px;position:relative;z-inde
         <div class="bc-b">Parses <code style="font-family:var(--fm);font-size:10px;color:var(--g)">requirements.txt</code>, <code style="font-family:var(--fm);font-size:10px;color:var(--g)">pyproject.toml</code>, or <code style="font-family:var(--fm);font-size:10px;color:var(--g)">package.json</code> from <em>your</em> repo to score real version fit. Supply <code style="font-family:var(--fm);font-size:10px;color:var(--g)">your_repo_url</code> to activate GÇö without it, this dimension is excluded and the other five reweight to fill the gap.</div>
         <span class="tk tk-p" style="margin-top:8px">Python</span>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- GöÇGöÇ TERMINAL GÇö evaluate GöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇGöÇ -->
+<section id="run">
+  <div class="run-inner w r0">
+    <div class="run-ey">Evaluate a dependency</div>
+    <h2 class="run-title">Get your Adoption Brief</h2>
+    <p class="run-sub">Free -+ no account -+ brief delivered as HTML email + A4 PDF</p>
+
+    <div class="term" id="run-card">
+      <!-- terminal bar -->
+      <div class="term-bar">
+        <div class="term-dots" aria-hidden="true">
+          <div class="term-dot"></div>
+          <div class="term-dot"></div>
+          <div class="term-dot"></div>
+        </div>
+        <span class="term-path">~/aris GÇö evaluate</span>
+        <span class="term-status">ready</span>
+      </div>
+
+      <!-- form -->
+      <form id="aris-form" autocomplete="off" novalidate>
+        <div class="term-body">
+
+          <div class="prompt-line">
+            <span class="prompt-sym">$</span>
+            <div class="prompt-inner">
+              <div class="prompt-lbl">tool or github url <span class="prompt-badge">required</span></div>
+              <input class="term-input" id="tool" name="repo_or_tool" placeholder="e.g. fastapi  -+  react  -+  or a GitHub URL" required autocomplete="off" aria-label="Tool name or GitHub URL" spellcheck="false">
+            </div>
+          </div>
+
+          <div class="prompt-line">
+            <span class="prompt-sym">#</span>
+            <div class="prompt-inner">
+              <div class="prompt-lbl">your use case <span class="prompt-badge">required</span></div>
+              <input class="term-input" id="ctx" name="evaluation_context" placeholder="e.g. backend API in production, replacing requests library" required autocomplete="off" aria-label="Your use case" spellcheck="false">
+              <div class="term-hint">// The more specific, the sharper the verdict</div>
+            </div>
+          </div>
+
+          <div class="term-sep" aria-hidden="true">
+            <div class="term-sep-line"></div>
+            <span class="term-sep-txt">optional</span>
+            <div class="term-sep-line"></div>
+          </div>
+
+          <div class="prompt-line">
+            <span class="prompt-sym">@</span>
+            <div class="prompt-inner">
+              <div class="prompt-lbl">your repo url <span class="prompt-badge" style="color:var(--mut);border-color:rgba(122,139,160,.2);background:rgba(122,139,160,.06)">activates stack scoring</span></div>
+              <input class="term-input" id="repo" name="your_repo_url" placeholder="https://github.com/you/your-project" autocomplete="off" aria-label="Your repository URL (optional)" spellcheck="false">
+            </div>
+          </div>
+
+          <div class="prompt-line">
+            <span class="prompt-sym">G£ë</span>
+            <div class="prompt-inner">
+              <div class="prompt-lbl">where to send the brief <span class="prompt-badge">required</span></div>
+              <input class="term-input email" id="email" name="recipient_email" type="email" placeholder="you@company.com" required autocomplete="off" aria-label="Email address" spellcheck="false">
+            </div>
+          </div>
+
+        </div>
+
+        <input class="hp" tabindex="-1" autocomplete="off" name="company_website" id="hp" aria-hidden="true">
+
+        <div class="term-submit-row" style="padding:0 20px 20px">
+          <button class="term-submit" type="submit" id="submit-btn">
+            aris evaluate --send-brief
+          </button>
+          <div class="term-foot">
+            <span class="foot-dot" aria-hidden="true"></span>
+            free -+ no account
+          </div>
+        </div>
+
+        <div class="term-err" id="err-msg" role="alert" aria-live="polite"></div>
+      </form>
+
+      <!-- output -->
+      <div class="term-output" id="result-panel" aria-live="polite">
+        <div class="output-sep">
+          <div class="output-sep-line"></div>
+          <span class="output-sep-txt">output</span>
+          <div class="output-sep-line"></div>
+        </div>
+        <div class="output-body">
+          <div class="output-cmd"><span class="cmd-prompt">GåÆ</span> <span id="out-cmd-txt"></span></div>
+          <div class="result-block" id="result-badge">
+            <div class="rv-v" id="rv-word">-+</div>
+            <div class="rv-s" id="rv-score">-+</div>
+            <div class="rv-c" id="rv-conf">-+</div>
+          </div>
+          <div class="dims-grid" id="result-dims"></div>
+          <div class="out-msg" id="result-msg"></div>
+        </div>
 </body></html>
