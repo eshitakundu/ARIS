@@ -13,7 +13,9 @@
 </p>
 
 <p>
-<a href="https://aris.eshita.dev"><b>Try it live →</b></a>
+  <a href="https://aris.eshita.dev">
+    <img src="https://img.shields.io/badge/🚀%20Try%20it%20Live-aris.eshita.dev-FF6B00?style=for-the-badge&logoColor=white" alt="Try it live →">
+  </a>
 </p>
 
 <p>
