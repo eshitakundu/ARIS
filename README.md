@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.png" alt="ARIS — Technology Adoption Intelligence" width="900">
+<img src="assets/banner.jpg" alt="ARIS — Technology Adoption Intelligence" width="900">
 
 <h3>Should you adopt that dependency? ARIS turns that question into a scored, evidence-backed verdict — grounded in your repository.</h3>
 
