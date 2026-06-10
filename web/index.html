@@ -453,7 +453,7 @@ footer{border-top:1px solid var(--b1);padding:28px 28px;position:relative;z-inde
 }
 </style>
 </head>
-<body data-heym-host="http://localhost:4017" data-workflow-id="15cd8c13-88a2-46fb-8af7-807a659501df">
+<body data-heym-host="https://aris-api.eshita.dev" data-portal-slug="aris">
 
 <!-- NAV -->
 <nav id="nav" aria-label="Primary navigation">
@@ -952,14 +952,44 @@ const form=document.getElementById('aris-form'),btn=document.getElementById('sub
 form.addEventListener('submit',async e=>{
   e.preventDefault();err.style.display='none';
   if(document.getElementById('hp').value)return;
-  const host=document.body.dataset.heymHost.replace(/\/$/,''),id=document.body.dataset.workflowId;
+  const host=document.body.dataset.heymHost.replace(/\/$/,''),slug=document.body.dataset.portalSlug;
   const tool=document.getElementById('tool').value.trim(),ctx=document.getElementById('ctx').value.trim();
-  const payload={repo_or_tool:tool,evaluation_context:ctx,your_repo_url:document.getElementById('repo').value.trim(),recipient_email:document.getElementById('email').value.trim()};
-  btn.disabled=true;btn.innerHTML='<span class="spin" aria-hidden="true"></span>evaluating…';
+  const payload={
+    inputs:{
+      repo_or_tool:tool,
+      evaluation_context:ctx,
+      your_repo_url:document.getElementById('repo').value.trim(),
+      recipient_email:document.getElementById('email').value.trim()
+    },
+    conversation_history:[]
+  };
+  btn.disabled=true;btn.innerHTML='<span class="spin" aria-hidden="true"></span>starting…';
   try{
-    const res=await fetch(`${host}/api/workflows/${id}/execute`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    if(!res.ok)throw new Error(res.status===429?'Rate limit reached. Try again shortly.':`Request failed (${res.status})`);
-    showResult(await res.json(),tool,ctx);
+    const res=await fetch(`${host}/api/portal/${slug}/execute/stream`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'text/event-stream'},
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok)throw new Error(`Request failed (${res.status})`);
+    const reader=res.body.getReader(),decoder=new TextDecoder();
+    let buffer='',finalEvent=null;
+    while(true){
+      const {value,done}=await reader.read();if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const chunks=buffer.split('\n\n');buffer=chunks.pop();
+      for(const chunk of chunks){
+        const line=chunk.split('\n').find(l=>l.startsWith('data:'));if(!line)continue;
+        let ev;try{ev=JSON.parse(line.slice(5).trim())}catch(_){continue}
+        if(ev.type==='node_started'||ev.type==='node_complete'||ev.type==='progress'){
+          const label=ev.node_label||ev.node_name||ev.node_id||ev.type;
+          btn.innerHTML='<span class="spin" aria-hidden="true"></span>'+String(label).slice(0,40);
+        }
+        if(ev.type==='execution_complete')finalEvent=ev;
+      }
+    }
+    if(!finalEvent)throw new Error('Stream ended with no result.');
+    if(finalEvent.status&&finalEvent.status!=='success'&&finalEvent.status!=='completed')throw new Error('Workflow status: '+finalEvent.status);
+    showResult(finalEvent.outputs||finalEvent,tool,ctx);
   }catch(ex){err.textContent=ex.message||'Something went wrong.';err.style.display='block';}
   finally{btn.disabled=false;btn.textContent='aris evaluate --send-brief';}
 });
