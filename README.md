@@ -5,11 +5,15 @@
 <h3>Should you adopt that dependency? ARIS turns that question into a scored, evidence-backed verdict — grounded in your repository.</h3>
 
 <p>
-<img src="https://img.shields.io/badge/status-research%20preview-E3A92C?style=flat-square" alt="status">
+<a href="https://aris.eshita.dev"><img src="https://img.shields.io/badge/live-aris.eshita.dev-1F9D57?style=flat-square" alt="live"></a>
 <img src="https://img.shields.io/badge/license-MIT-1F9D57?style=flat-square" alt="license">
 <img src="https://img.shields.io/badge/LLM-gpt--oss--120b%20%C2%B7%20NVIDIA%20NIM-76B900?style=flat-square" alt="model">
 <img src="https://img.shields.io/badge/engine-Heym%20(self--hosted%20fork)-2D6BE6?style=flat-square" alt="engine">
 <img src="https://img.shields.io/badge/scoring-deterministic%20Python-E3A92C?style=flat-square" alt="scoring">
+</p>
+
+<p>
+<a href="https://aris.eshita.dev"><b>Try it live →</b></a>
 </p>
 
 <p>
@@ -25,7 +29,7 @@
 
 ---
 
-**ARIS** evaluates a software tool or library and produces an **Adoption Decision Brief** — a 0–100 score across six dimensions, a single verdict (**ADOPT / KEEP / TRIAL / HOLD / AVOID**), narrative reasoning grounded in *your* repository, alternatives shaped by your use case, and an honest confidence figure — delivered to your inbox as a formatted email and PDF.
+**ARIS** evaluates a software tool or library and produces an **Adoption Decision Brief** — a 0–100 score across six dimensions, a single verdict (**ADOPT / KEEP / TRIAL / HOLD / AVOID**), narrative reasoning grounded in *your* repository, alternatives shaped by your use case, and an honest confidence figure — delivered to your inbox as a formatted email.
 
 It replaces the ad-hoc *"google it, check the stars, and hope"* process teams fall back on when deciding whether to take on a dependency.
 
@@ -49,7 +53,7 @@ It replaces the ad-hoc *"google it, check the stars, and hope"* process teams fa
 
 <img src="assets/sample-brief.png" alt="Sample Adoption Decision Brief" width="640">
 
-A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **terminal-style repo scan** (archetype, key libraries, existing competitors, migration effort), an **engineer's take** — a personalised commentary block written about *your* specific codebase — a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email and an A4 PDF.
+A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **terminal-style repo scan** (archetype, key libraries, existing competitors, migration effort), an **engineer's take** — a personalised commentary block written about *your* specific codebase — a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email.
 
 The brief contains five layers, in this order:
 
@@ -140,7 +144,7 @@ Six weighted dimensions, each 0–100. Every weight is a named, commented consta
 
 ## Run it
 
-ARIS is a Heym workflow. Trigger the `userInput` node with:
+The fastest path: open **[aris.eshita.dev](https://aris.eshita.dev)**, fill in the four fields, hit submit, check your inbox in about two minutes.
 
 | Field | Example | Notes |
 |---|---|---|
@@ -151,13 +155,32 @@ ARIS is a Heym workflow. Trigger the `userInput` node with:
 
 If `your_repo_url` is omitted, ARIS still runs — it just falls back to a generic brief without the Stack Compatibility branch contribution, and confidence drops accordingly. The other five dimensions reweight to fill the gap.
 
-**Configuration** — provide these as **Heym credentials**, never inline in nodes: an **NVIDIA NIM** API key (LLM), a **Tavily** key (search), a **GitHub** token (repo data), and **SMTP** credentials (email). OSV, PyPI, and npm need no keys.
+### Self-host
+
+ARIS is a Heym workflow. To run your own instance:
+
+1. Clone this repo and a [Heym](https://github.com/heym-ai/heym) fork (or compatible engine).
+2. Import the workflows from `workflows/main/main.json` and `workflows/branches/*.json` onto the Heym canvas.
+3. Add **Heym credentials** (never inline): an **NVIDIA NIM** API key (LLM), a **Tavily** key (search), a **GitHub** token (repo data), and **SMTP** credentials (email). OSV, PyPI, and npm need no keys.
+4. Enable Portal on the main workflow with a slug of your choice. Wire the static frontend in `web/` to `POST /api/portal/<slug>/execute/stream`.
+
+---
+
+## Deployment
+
+The live site at `aris.eshita.dev` runs on a free-tier stack:
+
+- **Frontend** → Cloudflare Pages (static, auto-deployed from this repo's `main` branch).
+- **Backend** → Heym (FastAPI + Postgres in Docker), reachable publicly via a permanent Cloudflare Tunnel at `aris-api.eshita.dev`. No public IP, no port forwarding.
+- **Auto-start** → Docker Desktop and `cloudflared` both start on Windows login via Task Scheduler. From cold boot to working public site takes ~90 seconds, hands-off.
+
+A full build log, glossary of every term used, and troubleshooting notes are in [`HOSTING_NOTES.md`](HOSTING_NOTES.md).
 
 ---
 
 ## Design system
 
-ARIS has its own visual identity — **"Verdict"**: a near-black canvas, a single metallic-gold accent used only as chrome, semantic verdict badges, terminal-style scan blocks for repo data, and monospaced numerals for every figure so the output reads like an instrument, not a marketing page. The brand carries across the email, the PDF, the landing page, and this repo. Logo and tokens live in [`assets/`](assets/).
+ARIS has its own visual identity — **"Verdict"**: a near-black canvas, a single metallic-gold accent used only as chrome, semantic verdict badges, terminal-style scan blocks for repo data, and monospaced numerals for every figure so the output reads like an instrument, not a marketing page. The brand carries across the email, the landing page, and this repo. Logo and tokens live in [`assets/`](assets/).
 
 The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, score gauges, color-coded metric bars) for at-a-glance scanning, and **terminal** (monospaced prompts, command-line output blocks, `// section headers`) to signal that this is an engineering tool — not a marketing report.
 
@@ -168,14 +191,13 @@ The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, s
 ```
 ARIS/
 ├── README.md
+├── HOSTING_NOTES.md          deploy + ops reference (Cloudflare Tunnel, Pages, troubleshooting)
 ├── LICENSE
-├── assets/                 logo, banner, architecture diagram, sample brief, brand marks
-├── docs/
-│   └── sample_report_langchain.pdf   a real Adoption Decision Brief (langchain, PDF)
-├── scripts/
-│   └── generate_report.py  server-side reportlab PDF generator (takes verdict JSON)
+├── assets/                   logo, banner, architecture diagram, sample brief, brand marks
+├── mail.html                 the email template the workflow renders into
 ├── web/
-│   └── index.html          landing page with live simulator and submission form
+│   ├── index.html            landing page with live verdict simulator and submission form
+│   └── favicon.svg
 └── workflows/
     ├── main/main.json
     └── branches/
@@ -203,8 +225,7 @@ The Heym workflow itself is maintained on the canvas; exported graphs in `workfl
 - [x] **First-party production boost** — when a tool is already used in the target repo, the repo itself counts as a verified production reference.
 - [x] **Deterministic scoring** — all six dimension scores computed in `pythonExec` Python nodes; LLMs receive scores and write narrative only.
 - [x] **Dashboard + terminal email design** — KPI tiles, score gauges, terminal-style repo scan, engineer's-take pull-quote, color-coded dimension bars.
-- [x] **PDF report** — `scripts/generate_report.py` (reportlab) generates a branded multi-page Adoption Decision Brief from the workflow's verdict JSON; linked from the email as "Generate Full Report".
-- [x] **Frontend** — landing page with live score simulator and submission form.
+- [x] **Public deployment** — landing page on Cloudflare Pages, backend on a Cloudflare Tunnel, custom domain at `aris.eshita.dev`.
 - [ ] **Validation run** — labelled set of tools (FastAPI / React / NumPy = healthy through a deprecated package to an abandoned one), with pairwise win-rate, band hit-rate, and Spearman ρ published in this README.
 - [ ] **Reproducibility** — pin model + temperature 0, snapshot raw responses by input hash, per-tool cache.
 - [ ] **Human-in-the-loop** gate before delivery.

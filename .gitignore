@@ -17,4 +17,4 @@ __pycache__/
 *.pyc
 .venv/
 
-mail.html
+note.md
