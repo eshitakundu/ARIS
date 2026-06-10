@@ -1,0 +1,17 @@
+# Default: let Git auto-handle line endings on text files
+* text=auto
+
+# Force LF on files that MUST be LF (shell scripts, Dockerfiles, etc.)
+# A CRLF here breaks Linux containers — Linux can't exec a script whose shebang ends with \r\n.
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.Dockerfile text eol=lf
+
+# Treat as binary (no eol conversion, no diff)
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
