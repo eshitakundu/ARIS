@@ -170,13 +170,12 @@ ARIS is a Heym workflow. To run your own instance:
 
 ## Deployment
 
-The live site at `aris.eshita.dev` runs on a free-tier stack:
+The live site at `aris.eshita.dev` runs 24/7 on a low-cost, mostly-free stack — with no personal machine in the loop:
 
 - **Frontend** → Cloudflare Pages (static, auto-deployed from this repo's `main` branch).
-- **Backend** → Heym (FastAPI + Postgres in Docker), reachable publicly via a permanent Cloudflare Tunnel at `aris-api.eshita.dev`. No public IP, no port forwarding.
-- **Auto-start** → Docker Desktop and `cloudflared` both start on Windows login via Task Scheduler. From cold boot to working public site takes ~90 seconds, hands-off.
-
-A full build log, glossary of every term used, and troubleshooting notes are in [`HOSTING_NOTES.md`](HOSTING_NOTES.md).
+- **Backend** → Heym (FastAPI + Postgres in Docker) on a **DigitalOcean droplet** (1 GB), exposed publicly through a permanent **Cloudflare Tunnel** at `aris-api.eshita.dev` — no public IP, no port forwarding.
+- **Email delivery** → briefs are sent through a **Brevo SMTP relay** on port `2525` (DigitalOcean blocks the standard SMTP ports 25/465/587), with credentials stored encrypted in Postgres.
+- **Always-on** → the Docker stack (`restart: always`) and `cloudflared` (a systemd service) run on the droplet, so the site survives reboots and no longer depends on a laptop staying awake.
 
 ---
 
@@ -193,7 +192,6 @@ The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, s
 ```
 ARIS/
 ├── README.md
-├── HOSTING_NOTES.md          deploy + ops reference (Cloudflare Tunnel, Pages, troubleshooting)
 ├── LICENSE
 ├── assets/                   logo, banner, architecture diagram, sample brief, brand marks
 ├── mail.html                 the email template the workflow renders into
