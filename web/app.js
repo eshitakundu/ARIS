@@ -43,6 +43,7 @@ const reportConsole = document.querySelector(".report-console");
 const status = document.querySelector("#analysis-status");
 const resolutionOrder = [0, 3, 1, 5, 2, 4];
 const reportKeys = Object.keys(reports);
+const scoreBand = (score) => score >= 85 ? "strong" : score >= 70 ? "solid" : score >= 55 ? "mixed" : score >= 40 ? "watch" : "weak";
 let desktopStoryTrigger;
 let sequenceTimers = [];
 let sequenceToken = 0;
@@ -115,6 +116,8 @@ function runAnalysis(key, { updateUrl = true } = {}) {
     readout.classList.remove("is-scanning", "is-resolved");
     readout.querySelector("b").textContent = "00";
     readout.dataset.value = report.dimensions[index][0];
+    readout.style.setProperty("--meter", `${report.dimensions[index][0]}%`);
+    readout.querySelector("em").textContent = "waiting";
   });
   document.querySelectorAll(".scene-fallback span").forEach((plate) => plate.classList.remove("is-active"));
 
@@ -127,12 +130,14 @@ function runAnalysis(key, { updateUrl = true } = {}) {
     const scanTimer = setTimeout(() => {
       if (token !== sequenceToken) return;
       readout.classList.add("is-scanning");
+      readout.querySelector("em").textContent = "checking";
       status.textContent = `Comparing ${dimensionNames[index].toLowerCase()} evidence`;
     }, delay + step * cadence);
     const resolveTimer = setTimeout(() => {
       if (token !== sequenceToken) return;
       readout.classList.remove("is-scanning");
       readout.classList.add("is-resolved");
+      readout.querySelector("em").textContent = scoreBand(report.dimensions[index][0]);
       animateNumber(readout.querySelector("b"), report.dimensions[index][0], reducedMotion ? 0 : 360);
     }, delay + step * cadence + (reducedMotion ? 0 : 250));
     sequenceTimers.push(scanTimer, resolveTimer);
