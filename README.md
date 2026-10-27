@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/banner.jpg" alt="ARIS — Technology Adoption Intelligence" width="900">
+<img src="web/og-card.png" alt="ARIS repository-aware dependency decision showcase" width="900">
 
 <h3>Should you adopt that dependency? ARIS turns that question into a scored, evidence-backed verdict — grounded in your repository.</h3>
 
@@ -14,7 +14,7 @@
 
 <p>
   <a href="https://aris.eshita.dev">
-    <img src="https://img.shields.io/badge/🚀%20Try%20it%20Live-aris.eshita.dev-FF6B00?style=for-the-badge&logoColor=white" alt="Try it live →">
+    <img src="https://img.shields.io/badge/View%20the%20interactive%20showcase-aris.eshita.dev-DFFF35?style=for-the-badge&logoColor=111111" alt="View the ARIS showcase">
   </a>
 </p>
 
@@ -23,7 +23,7 @@
 <a href="#why-aris-is-different">Why it&#39;s different</a> &nbsp;&middot;&nbsp;
 <a href="#how-it-works">How it works</a> &nbsp;&middot;&nbsp;
 <a href="#the-score">The score</a> &nbsp;&middot;&nbsp;
-<a href="#run-it">Run it</a> &nbsp;&middot;&nbsp;
+<a href="#explore-the-project">Explore it</a> &nbsp;&middot;&nbsp;
 <a href="#roadmap">Roadmap</a>
 </p>
 
@@ -144,18 +144,11 @@ Six weighted dimensions, each 0–100. Every weight is a named, commented consta
 
 ---
 
-## Run it
+## Explore the project
 
-The fastest path: open **[aris.eshita.dev](https://aris.eshita.dev)**, fill in the four fields, hit submit, check your inbox in about two minutes.
+Open **[aris.eshita.dev](https://aris.eshita.dev)** to see the scoring model animate from repository context through six independent evidence dimensions. The site includes five saved decision briefs covering every verdict band: **ADOPT, KEEP, TRIAL, HOLD, and AVOID**.
 
-| Field | Example | Notes |
-|---|---|---|
-| `repo_or_tool` | `langchain` *or* a GitHub URL | the tool under evaluation |
-| `evaluation_context` | `building a RAG pipeline in Python` | your actual use case — shapes every query |
-| `your_repo_url` | `https://github.com/you/your-project` | activates repo-aware scoring + personalised commentary |
-| `recipient_email` | `you@company.com` | where the brief is delivered |
-
-If `your_repo_url` is omitted, ARIS still runs — it just falls back to a generic brief without the Stack Compatibility branch contribution, and confidence drops accordingly. The other five dimensions reweight to fill the gap.
+The **KEEP** brief is captured from the working ARIS build. The other four are representative local scenarios that make the full decision system inspectable while the hosted research backend is offline. A **98-second recorded walkthrough** is available directly from the site.
 
 ### Self-host
 
@@ -170,18 +163,16 @@ ARIS is a Heym workflow. To run your own instance:
 
 ## Deployment
 
-The live site at `aris.eshita.dev` runs 24/7 on a low-cost, mostly-free stack — with no personal machine in the loop:
-
-- **Frontend** → Cloudflare Pages (static, auto-deployed from this repo's `main` branch).
-- **Backend** → Heym (FastAPI + Postgres in Docker) on a **DigitalOcean droplet** (1 GB), exposed publicly through a permanent **Cloudflare Tunnel** at `aris-api.eshita.dev` — no public IP, no port forwarding.
-- **Email delivery** → briefs are sent through a **Brevo SMTP relay** on port `2525` (DigitalOcean blocks the standard SMTP ports 25/465/587), with credentials stored encrypted in Postgres.
-- **Always-on** → the Docker stack (`restart: always`) and `cloudflared` (a systemd service) run on the droplet, so the site survives reboots and no longer depends on a laptop staying awake.
+- **Showcase** → the static site at `aris.eshita.dev` is deployed on Cloudflare Pages from this repository.
+- **Recorded proof** → the walkthrough and captured KEEP report were produced by the working system and remain available when the backend is unavailable.
+- **Original backend** → Heym, FastAPI, and Postgres ran in Docker on a DigitalOcean droplet behind a Cloudflare Tunnel, with Brevo handling email delivery. That hosted research backend is currently offline.
+- **Local or future deployment** → the exported workflow definitions remain in `workflows/` and can be imported into a compatible Heym installation using the self-hosting steps above.
 
 ---
 
 ## Design system
 
-ARIS has its own visual identity — **"Verdict"**: a near-black canvas, a single metallic-gold accent used only as chrome, semantic verdict badges, terminal-style scan blocks for repo data, and monospaced numerals for every figure so the output reads like an instrument, not a marketing page. The brand carries across the email, the landing page, and this repo. Logo and tokens live in [`assets/`](assets/).
+The ARIS showcase uses a near-black instrument panel, electric-lime signal color, warm ivory editorial sections, and semantic verdict colors. **Clash Display** provides the compressed display typography, **General Sans** handles readable interface copy, and **IBM Plex Mono** is reserved for evidence labels and numeric detail. The animated landing sequence and saved reports are designed to make the scoring system understandable before asking anyone to read the architecture.
 
 The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, score gauges, color-coded metric bars) for at-a-glance scanning, and **terminal** (monospaced prompts, command-line output blocks, `// section headers`) to signal that this is an engineering tool — not a marketing report.
 
@@ -196,7 +187,10 @@ ARIS/
 ├── assets/                   logo, banner, architecture diagram, sample brief, brand marks
 ├── mail.html                 the email template the workflow renders into
 ├── web/
-│   ├── index.html            landing page with live verdict simulator and submission form
+│   ├── index.html            interactive showcase and five saved verdict reports
+│   ├── styles.css            responsive visual system and report layouts
+│   ├── app.js                looping analysis sequence and report interactions
+│   ├── brand/                ARIS marks and dependency logos
 │   └── favicon.svg
 └── workflows/
     ├── main/main.json
