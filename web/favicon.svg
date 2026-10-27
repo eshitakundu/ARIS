@@ -1,26 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-  <defs>
-    <linearGradient id="aurum" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#F4C75A"/>
-      <stop offset="0.5" stop-color="#E3A92C"/>
-      <stop offset="1" stop-color="#F0884B"/>
-    </linearGradient>
-    <radialGradient id="sweep" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#F4C75A" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#F4C75A" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="2.6" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <rect width="160" height="160" fill="#06080C" rx="24"/>
-  <circle cx="80" cy="80" r="52" fill="none" stroke="url(#aurum)" stroke-opacity="0.20" stroke-width="3"/>
-  <circle cx="80" cy="80" r="36" fill="none" stroke="url(#aurum)" stroke-opacity="0.32" stroke-width="3"/>
-  <path d="M80 80 L141 80 A61 61 0 0 0 108 26 Z" fill="url(#sweep)"/>
-  <line x1="80" y1="13" x2="80" y2="27" stroke="url(#aurum)" stroke-opacity="0.55" stroke-width="3"/>
-  <line x1="133" y1="80" x2="147" y2="80" stroke="url(#aurum)" stroke-opacity="0.55" stroke-width="3"/>
-  <circle cx="116" cy="50" r="6" fill="#F4C75A" filter="url(#glow)"/>
-  <path d="M80 63 L97 80 L80 97 L63 80 Z" fill="url(#aurum)" filter="url(#glow)"/>
-  <path d="M80 71 L89 80 L80 89 L71 80 Z" fill="#0A0E14"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">ARIS</title>
+  <rect width="256" height="256" rx="56" fill="#0D0A06"/>
+  <g transform="translate(38.4 38.4) scale(.7)">
+    <path fill="#FFFFFF" d="M28 36H82L132 86L116 102L72 58H28ZM28 74H66L112 120L96 136L56 96H28ZM28 112H76V144H28ZM28 160H56L96 120L112 136L66 182H28ZM28 198H72L116 154L132 170L82 220H28Z"/>
+    <path fill="#DFFF35" d="M112 112H180V96L228 128L180 160V144H112Z"/>
+  </g>
 </svg>
