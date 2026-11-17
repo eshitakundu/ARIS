@@ -55,7 +55,7 @@ It replaces the ad-hoc *"google it, check the stars, and hope"* process teams fa
 
 <img src="assets/sample-brief.png" alt="Sample Adoption Decision Brief" width="640">
 
-A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **terminal-style repo scan** (archetype, key libraries, existing competitors, migration effort), an **engineer's take** — a personalised commentary block written about *your* specific codebase — a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email.
+A one-look brief: the **verdict badge** with weighted score and confidence, **six dimension scores** with one-line narratives, a **repository section** (archetype, key libraries, existing competitors, migration effort) led by an **engineer's take** — a personalised note written about *your* specific codebase — a **recommendation rationale** (why this verdict, and what would move it up or down), **alternatives** chosen for your stated use case, and a **caveats** section that states plainly what evidence was thin. Shipped as a branded HTML email.
 
 The brief contains five layers, in this order:
 
@@ -195,7 +195,7 @@ ARIS is a Heym workflow. To run your own instance:
 
 The ARIS showcase uses a near-black instrument panel, electric-lime signal color, warm ivory editorial sections, and semantic verdict colors. **Clash Display** provides the compressed display typography, **General Sans** handles readable interface copy, and **IBM Plex Mono** is reserved for evidence labels and numeric detail. The animated landing sequence and saved reports are designed to make the scoring system understandable before asking anyone to read the architecture.
 
-The email design merges two aesthetics deliberately: **dashboard** (KPI tiles, score gauges, color-coded metric bars) for at-a-glance scanning, and **terminal** (monospaced prompts, command-line output blocks, `// section headers`) to signal that this is an engineering tool — not a marketing report.
+The emailed brief uses the same system as the site's saved reports: a warm ivory report card on the near-black shell, a verdict pill in the verdict's color, score and confidence up top, and a grid of six evidence scores with lime bars. It is built from email-safe tables with the brand fonts loaded where the mail client allows, falling back to Helvetica and Arial elsewhere.
 
 ---
 
@@ -206,7 +206,6 @@ ARIS/
 ├── README.md
 ├── LICENSE
 ├── assets/                   logo, banner, architecture diagram, sample brief, brand marks
-├── mail.html                 the email template the workflow renders into
 ├── web/
 │   ├── index.html            interactive showcase and five saved verdict reports
 │   ├── styles.css            responsive visual system and report layouts
@@ -236,10 +235,10 @@ The Heym workflow itself is maintained on the canvas; exported graphs in `workfl
 - [x] **Repo profiling** — README excerpt, language stats, top-level structure, and archetype detection (`library` / `web_service` / `ml_pipeline` / `data_pipeline` / `cli` / `infra` / `ml_research`).
 - [x] **Competitor detection** — built-in tool-category map identifies competing tools already declared in the target repo and reframes the brief as a migration decision when applicable.
 - [x] **KEEP verdict** — when a tool is already declared, the brief reframes around staying healthy on the current version, not fresh adoption.
-- [x] **Personalised engineer commentary** — dedicated LLM node produces a 4-6 sentence pull-quote commentary specific to the target repo, displayed in the email as a serif italic block.
+- [x] **Personalised engineer commentary** — dedicated LLM node produces a 4-6 sentence pull-quote commentary specific to the target repo, shown as a quoted note at the top of the repository section.
 - [x] **First-party production boost** — when a tool is already used in the target repo, the repo itself counts as a verified production reference.
 - [x] **Deterministic scoring** — all six dimension scores computed in `pythonExec` Python nodes; LLMs receive scores and write narrative only.
-- [x] **Dashboard + terminal email design** — KPI tiles, score gauges, terminal-style repo scan, engineer's-take pull-quote, color-coded dimension bars.
+- [x] **Email brief matching the site** — ivory report card, verdict pill, six-score grid, repository section and engineer's note, in the showcase's lime and near-black design system.
 - [x] **Public deployment** — landing page on Cloudflare Pages, backend on a Cloudflare Tunnel, custom domain at `aris.eshita.dev`.
 - [ ] **Validation run** — labelled set of tools (FastAPI / React / NumPy = healthy through a deprecated package to an abandoned one), with pairwise win-rate, band hit-rate, and Spearman ρ published in this README.
 - [ ] **Reproducibility** — pin model + temperature 0, snapshot raw responses by input hash, per-tool cache.
