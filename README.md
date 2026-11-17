@@ -97,7 +97,7 @@ Input → decompose → **seven parallel intelligence branches** → compress �
 
 Every branch has retries and routes failures to a shared error handler — a branch that drops out simply **lowers confidence** rather than corrupting the score.
 
-> **Engineering note — a custom node in the engine.** ARIS runs on a self-hosted **fork of Heym**. Two problems pushed me to extend the engine itself: its agent node couldn't execute scoring code inline, and several nodes flooded the model with so much raw API / MCP context that generation failed. So I added a custom **`PythonExec`** node to the fork — deterministic Python that (1) computes every score and (2) extracts just the fields each LLM needs from large payloads before they reach it. That node is now the backbone of ARIS: all three scoring stages, every branch's data-extraction adapter, and the repo-profile bundler run on it.
+> **Engineering note — a custom node in the engine.** ARIS runs on a self-hosted **fork of Heym**. Two problems pushed me to extend the engine itself: its agent node couldn't execute scoring code inline, and several nodes flooded the model with so much raw API / MCP context that generation failed. So I added a custom **`PythonExec`** node to the fork — deterministic Python that (1) computes every score and (2) extracts just the fields each LLM needs from large payloads before they reach it. That node is now the backbone of ARIS: all three scoring stages, every branch's data-extraction adapter, and the repo-profile bundler run on it. I proposed the node upstream; the Heym maintainers then shipped the same capability as a native Code node ([discussion #136](https://github.com/heymrun/heym/discussions/136)).
 
 ### The Stack Compatibility branch in detail
 
@@ -143,6 +143,27 @@ Six weighted dimensions, each 0–100. Every weight is a named, commented consta
 **Confidence** — `0.50 × data-completeness + 0.30 × deterministic-coverage + 0.20 × agreement`, capped at `0.95`.
 
 ---
+
+## Tests
+
+The scoring is the part of ARIS that must never guess, so it is tested. [`tests/test_scoring.py`](tests/test_scoring.py) pulls the real `scoringCompute` code out of `workflows/main/main.json` and runs it the way Heym does (JSON in, JSON out), so a change to the workflow is a change under test.
+
+| What is checked | Tests |
+|---|---|
+| All 18 Python nodes in the 8 workflow files compile | 18 |
+| Each verdict follows its weighted-score band, and all 4 verdicts are reachable | 6 |
+| Security veto caps a strong tool at HOLD; unpatched-CVE penalty is capped | 3 |
+| Repo-fit overrides: ALREADY_USED → KEEP, POOR_FIT and MIGRATION_REQUIRED cap stack | 3 |
+| Confidence drops with contradictions and missing data, never exceeds 0.95 | 3 |
+| Same evidence gives the same verdict; 200 random inputs stay in bounds | 2 |
+| Weights sum to 1; the workflow has exactly 18 Python nodes; no branch data is reported, not scored | 3 |
+
+```bash
+pip install pytest
+pytest -q   # 38 passed
+```
+
+CI runs the same suite on every push.
 
 ## Explore the project
 
