@@ -169,7 +169,7 @@ CI runs the same suite on every push.
 
 Open **[aris.eshita.dev](https://aris.eshita.dev)** to see the scoring model animate from repository context through six independent evidence dimensions. The site includes five saved decision briefs covering every verdict band: **ADOPT, KEEP, TRIAL, HOLD, and AVOID**.
 
-The **KEEP** brief is captured from the working ARIS build. The other four are representative local scenarios that make the full decision system inspectable while the hosted research backend is offline. A **98-second recorded walkthrough** is available directly from the site.
+The **KEEP** brief is captured from the working ARIS build. The other four are representative local scenarios that make the full decision system inspectable while the hosted research backend is offline. A **81-second walkthrough** is available directly from the site.
 
 ### Self-host
 
