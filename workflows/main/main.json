@@ -268,7 +268,7 @@
         "label": "sendEmail",
         "credentialId": "fbb242bd-0e79-4f7e-8a6f-352cdf7003c4",
         "to": "$userInput.body.recipient_email",
-        "subject": "ARIS Brief — $synthesizerLLM.tool_name → $synthesizerLLM.recommendation ($synthesizerLLM.weighted_score/100)",
+        "subject": "ARIS brief: $synthesizerLLM.tool_name → $synthesizerLLM.recommendation ($synthesizerLLM.weighted_score/100)",
         "emailBody": "$buildEmailHtml.output",
         "retryEnabled": true,
         "onErrorEnabled": false,
